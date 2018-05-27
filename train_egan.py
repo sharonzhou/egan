@@ -10,11 +10,12 @@ import torch.backends.cudnn as cudnn
 
 import random
 import argparse
-from models.models_egan import _netG, _netD1, _netD2, _netD3, _netE
+from models.models_egan import _netG, _netD1, _netD2, _netD3
+# from models.models_egan import _netG, _netD1, _netD2, _netD3, _netE
 
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
-parser.add_argument('--gpu_ids', default=[0,1,2,3], help='gpu ids: e.g. 0,1,2, 0,2.')
+parser.add_argument('--gpu_ids', default=range(3), help='gpu ids: e.g. 0,1,2, 0,2.')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=1, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=128, help='dimention of lantent noise')
@@ -69,17 +70,17 @@ G = _netG(nz, 3, 64)
 SND1 = _netD1(3, 64)
 SND2 = _netD2(3, 64)
 SND3 = _netD3(3, 64)
-E = _netE(3, 12480, 3)
+# E = _netE(3, 12480, 3)
 print(G)
 print(SND1)
 print(SND2)
 print(SND3)
-print(E)
+# print(E)
 G.apply(weight_filler)
 SND1.apply(weight_filler)
 SND2.apply(weight_filler)
 SND3.apply(weight_filler)
-E.apply(weight_filler)
+# E.apply(weight_filler)
 
 input = torch.FloatTensor(opt.batchsize, 3, 32, 32)
 noise = torch.FloatTensor(opt.batchsize, nz, 1, 1)
@@ -96,7 +97,7 @@ if opt.cuda:
     SND1.cuda()
     SND2.cuda()
     SND3.cuda()
-    E.cuda()
+    # E.cuda()
     criterion.cuda()
     input, label = input.cuda(), label.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
@@ -105,7 +106,7 @@ optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND1 = optim.Adam(SND1.parameters(), lr=0.001, betas=(0, 0.9))
 optimizerSND2 = optim.Adam(SND2.parameters(), lr=0.000002, betas=(0, 0.9))
 optimizerSND3 = optim.Adam(SND3.parameters(), lr=0.0002, betas=(0, 0.9))
-optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
+# optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
 for epoch in range(200):
     print("Epoch 1 starting ")
@@ -118,7 +119,7 @@ for epoch in range(200):
         SND1.zero_grad()
         SND2.zero_grad()
         SND3.zero_grad()
-        E.zero_grad()
+        # E.zero_grad()
         real_cpu, _ = data
         batch_size = real_cpu.size(0)
 
