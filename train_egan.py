@@ -118,17 +118,12 @@ optimizerSND2 = optim.Adam(SND2.parameters(), lr=0.000002, betas=(0, 0.9))
 optimizerSND3 = optim.Adam(SND3.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
+DE_train_interval = 600
 for epoch in range(200):
     # print("Epoch", epoch, "starting")
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
-        ############################
-        # (1) Update D_i networks: maximize log(D_i(x)) + log(1 - D_i(G(z)))
-        ###########################
-        # train with real
-        SND1.zero_grad()
-        SND2.zero_grad()
-        SND3.zero_grad()
+        
         real_cpu, _ = data
         batch_size = real_cpu.size(0)
 
@@ -136,17 +131,25 @@ for epoch in range(200):
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
         labelv = Variable(label)
-        # print("Input: ", inputv.size())
+        ############################
+        # (1) Update D_i networks: maximize log(D_i(x)) + log(1 - D_i(G(z)))
+        ###########################
+        # train with real
+        SND1.zero_grad()
+        SND2.zero_grad()
+        SND3.zero_grad()
+
         output1 = SND1(inputv)
         output2 = SND2(inputv)
         output3 = SND3(inputv)
 
-        errD1_real = criterion(output1, labelv)
-        errD1_real.backward(retain_graph=True)
-        errD2_real = criterion(output2, labelv)
-        errD2_real.backward(retain_graph=True)
-        errD3_real = criterion(output3, labelv)
-        errD3_real.backward(retain_graph=True)
+        if i % DE_train_interval == 0:
+            errD1_real = criterion(output1, labelv)
+            errD1_real.backward(retain_graph=True)
+            errD2_real = criterion(output2, labelv)
+            errD2_real.backward(retain_graph=True)
+            errD3_real = criterion(output3, labelv)
+            errD3_real.backward(retain_graph=True)
 
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
@@ -157,24 +160,22 @@ for epoch in range(200):
         output2 = SND2(fake.detach())
         output3 = SND3(fake.detach())
 
-        errD1_fake = criterion(output1, labelv)
-        errD1_fake.backward(retain_graph=True)
-        errD2_fake = criterion(output2, labelv)
-        errD2_fake.backward(retain_graph=True)
-        errD3_fake = criterion(output3, labelv)
-        errD3_fake.backward(retain_graph=True)
+        if i % DE_train_interval == 0:
+            errD1_fake = criterion(output1, labelv)
+            errD1_fake.backward(retain_graph=True)
+            errD2_fake = criterion(output2, labelv)
+            errD2_fake.backward(retain_graph=True)
+            errD3_fake = criterion(output3, labelv)
+            errD3_fake.backward(retain_graph=True)
 
-        D1_G_z1 = output1.data.mean()
-        D2_G_z1 = output2.data.mean()
-        D3_G_z1 = output3.data.mean()
-
-        errD1 = errD1_real + errD1_fake
-        errD2 = errD2_real + errD2_fake
-        errD3 = errD3_real + errD3_fake
+            errD1 = errD1_real + errD1_fake
+            errD2 = errD2_real + errD2_fake
+            errD3 = errD3_real + errD3_fake
         
-        optimizerSND1.step()
-        optimizerSND2.step()
-        optimizerSND3.step()
+        if i % DE_train_interval == 0:
+            optimizerSND1.step()
+            optimizerSND2.step()
+            optimizerSND3.step()
 
         ############################
         # (2) Run E network: given X and context c, output weights W of length len(D_i)
@@ -203,10 +204,11 @@ for epoch in range(200):
             optimizerG.step()
 
         # (4) Update E network: minimize log(D(G(z))*E(X,c))
-        E.zero_grad()
-        errE = -errG
-        errE.backward(retain_graph=True)
-        optimizerE.step()
+        if i % DE_train_interval == 0:
+            E.zero_grad()
+            errE = -errG
+            errE.backward(retain_graph=True)
+            optimizerE.step()
 
         if i % 20 == 0:
             print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f Loss_log(D(G(z))*E(X,c)): %.4f' % (epoch, 200, i, len(dataloader),
@@ -217,7 +219,7 @@ for epoch in range(200):
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/fake_samples_epoch_%03d.png' % ('log', epoch),
+                    '%s/E_fake_samples_epoch_%03d.png' % ('log', epoch),
                     normalize=True)
 
 
