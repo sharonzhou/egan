@@ -32,7 +32,7 @@ parser.add_argument('--nz', type=int, default=128, help='dimention of lantent no
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
 
 opt = parser.parse_args()
-print(opt)
+# print(opt)
 
 # dataset = datasets.ImageFolder(root='/home/chao/zero/datasets/cfp-dataset/Data/Images',
 #                            transform=transforms.Compose([
@@ -80,7 +80,7 @@ G = _netG(nz, 3, 64)
 SND1 = _netD1(3, 64)
 SND2 = _netD2(3, 64)
 SND3 = _netD3(3, 64)
-E = _netE(3, 0, 3)
+E = _netE(3, 64, 0, 3)
 print(G)
 print(SND1)
 print(SND2)
@@ -119,7 +119,7 @@ optimizerSND3 = optim.Adam(SND3.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
 for epoch in range(200):
-    print("Epoch", epoch, "starting")
+    # print("Epoch", epoch, "starting")
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
         ############################
@@ -136,17 +136,17 @@ for epoch in range(200):
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
         labelv = Variable(label)
-        print("Input: ", inputv.size())
+        # print("Input: ", inputv.size())
         output1 = SND1(inputv)
         output2 = SND2(inputv)
         output3 = SND3(inputv)
 
         errD1_real = criterion(output1, labelv)
-        errD1_real.backward()
+        errD1_real.backward(retain_graph=True)
         errD2_real = criterion(output2, labelv)
-        errD2_real.backward()
+        errD2_real.backward(retain_graph=True)
         errD3_real = criterion(output3, labelv)
-        errD3_real.backward()
+        errD3_real.backward(retain_graph=True)
 
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
@@ -158,11 +158,11 @@ for epoch in range(200):
         output3 = SND3(fake.detach())
 
         errD1_fake = criterion(output1, labelv)
-        errD1_fake.backward()
+        errD1_fake.backward(retain_graph=True)
         errD2_fake = criterion(output2, labelv)
-        errD2_fake.backward()
+        errD2_fake.backward(retain_graph=True)
         errD3_fake = criterion(output3, labelv)
-        errD3_fake.backward()
+        errD3_fake.backward(retain_graph=True)
 
         D1_G_z1 = output1.data.mean()
         D2_G_z1 = output2.data.mean()
@@ -181,11 +181,11 @@ for epoch in range(200):
         # (dist/pdf of action space)
         # multiply p_i * W to get final output o
         ###########################
-        W = E(inputv) #TODO: add context
-        print("W: ", W)
-        print("dimensions of W: ", W.size())
-        print("dimensions of concat output: ", torch.cat((output1, output2, output3)))
-        output = torch.mul(W, torch.cat((output1, output2, output3)))
+        # print("dimensions of concat output: ", torch.stack((output1, output2, output3)).size())
+        # print('inputv', inputv.size())
+        W = E(inputv)
+        output = torch.matmul(W, torch.stack((output1, output2, output3)))
+        output = torch.mean(output, 1)
 
         ############################
         # (3) Update G network: maximize log(D(G(z))*E(X,c)) /////formerly: maximize log(D(G(z)))
@@ -196,7 +196,7 @@ for epoch in range(200):
             labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
 
             errG = criterion(output, labelv)
-            errG.backward()
+            errG.backward(retain_graph=True)
 
             DG_E = output.data.mean()
 
@@ -205,11 +205,11 @@ for epoch in range(200):
         # (4) Update E network: minimize log(D(G(z))*E(X,c))
         E.zero_grad()
         errE = -errG
-        errE.backward()
+        errE.backward(retain_graph=True)
         optimizerE.step()
 
         if i % 20 == 0:
-            print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_log(D(G(z))*E(X,c)): %.4f' % (epoch, 200, i, len(dataloader),
+            print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f Loss_log(D(G(z))*E(X,c)): %.4f' % (epoch, 200, i, len(dataloader),
                      errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], DG_E))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
