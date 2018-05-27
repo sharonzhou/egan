@@ -38,7 +38,6 @@ class _netG(nn.Module):
 class _netE(nn.Module):
     def __init__(self, nc, ndf, ncontext, ndiscriminators):
         super(_netE, self).__init__()
-        print('ndiscriminators', ndiscriminators)
 
         self.main = nn.Sequential(
             # input is (nc * ncontext) x 32 x 32 TODO add ncontext
@@ -66,11 +65,8 @@ class _netD1(nn.Module):
             nn.Sigmoid()
         )
     def forward(self, input):
-        print('netD1 forward')
         output = self.main(input)
-        print(output.size())
         output = output.view(-1, 1).squeeze(1)
-        print(output.size())
         return output
 
 class _netD2(nn.Module):
@@ -116,11 +112,8 @@ class _netD3(nn.Module):
             nn.Sigmoid()
         )
     def forward(self, input):
-        print('netD3 forward')
         output = self.main(input)
-        print(output.size())
         output = output.view(-1, 1).squeeze(1)
-        print(output.size())
         return output
 
 
