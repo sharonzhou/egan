@@ -34,20 +34,21 @@ class _netG(nn.Module):
         output = self.main(input)
         return output
 
-# class _netE(nn.Module):
-#     def __init__(self, nc, ndf, ndiscriminators):
-#         super(_netE, self).__init__()
+# Actor
+class _netE(nn.Module):
+    def __init__(self, nc, ncontext, ndiscriminators):
+        super(_netE, self).__init__()
 
-#         self.main = nn.Sequential(
-#             # input is (nc * ndiscriminators) x 32 x 32
-#             SNConv2d(12480, ndf, 3, 1, 1, bias=True), #TODO figure out dims
-#             nn.LeakyReLU(0.1, inplace=True),
-#             SNConv2d(ndf, ndf, 4, 2, 1, bias=False),
-#             nn.Sigmoid()
-#         )
-#     def forward(self, Ds):
-#         output = self.main(Ds) 
-#         return output.view(-1, 1).squeeze(1)
+        self.main = nn.Sequential(
+            # input is (nc * ncontext) x 32 x 32 TODO add ncontext
+            nn.Conv2d(nc, ndiscriminators, 3, 1, 1, bias=True), 
+            nn.ReLU(0.1),
+            nn.Conv2d(ndiscriminators, ndiscriminators, 4, 2, 1, bias=False),
+            nn.Sigmoid()
+        )
+    def forward(self, input):
+        output = self.main(input) 
+        return output.view(-1, 1).squeeze(1)
 
 class _netD1(nn.Module):
     def __init__(self, nc, ndf):
