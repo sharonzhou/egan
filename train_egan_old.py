@@ -11,7 +11,7 @@ import torch.backends.cudnn as cudnn
 import random
 import argparse
 # from models.models_egan import _netG, _netD1, _netD2, _netD3
-from models.models_egan import _netG, _netD1, _netD2, _netD3, _netE, _netD_list
+from models.models_egan import _netG, _netD1, _netD2, _netD3, _netE
 
 # TODO: 
 # 1. array-ify
@@ -82,13 +82,19 @@ n_dis = opt.n_dis
 nz = opt.nz
 
 G = _netG(nz, 3, 64)
-SND_list = [_netD_x(3,64) for _netD_x in _netD_list]
+SND1 = _netD1(3, 64)
+SND2 = _netD2(3, 64)
+SND3 = _netD3(3, 64)
 E = _netE(3, 64, 0, 3)
 print(G)
+print(SND1)
+print(SND2)
+print(SND3)
 print(E)
 G.apply(weight_filler)
-for SNDx in SND_list:
-    SNDx.apply(weight_filler)
+SND1.apply(weight_filler)
+SND2.apply(weight_filler)
+SND3.apply(weight_filler)
 E.apply(weight_filler)
 
 input = torch.FloatTensor(opt.batchsize, 3, 32, 32)
@@ -103,19 +109,18 @@ criterion = nn.BCELoss()
 
 if opt.cuda:
     G.cuda()
-    for SNDx in SND_list:
-        SNDx.cuda()
+    SND1.cuda()
+    SND2.cuda()
+    SND3.cuda()
     E.cuda()
     criterion.cuda()
     input, label = input.cuda(), label.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
 
 optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
-optimizerSND_list = []
-lr_list = [0.001, 0.000002, 0.0002]
-for [SNDx, lrx] in zip(SND_list, lr_list):
-    optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
-    optimizerSND_list.append(optimizerSNDx)
+optimizerSND1 = optim.Adam(SND1.parameters(), lr=0.001, betas=(0, 0.9))
+optimizerSND2 = optim.Adam(SND2.parameters(), lr=0.000002, betas=(0, 0.9))
+optimizerSND3 = optim.Adam(SND3.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
 DE_TRAIN_INTERVAL = 1
@@ -135,41 +140,47 @@ for epoch in range(200):
         # (1) Update D_i networks: maximize log(D_i(x)) + log(1 - D_i(G(z)))
         ###########################
         # train with real
-        for SNDx in SND_list:
-            SNDx.zero_grad()
+        SND1.zero_grad()
+        SND2.zero_grad()
+        SND3.zero_grad()
 
         if i % DE_TRAIN_INTERVAL == 0:
-            print()
-            output_list = [SNDx(inputv) for SNDx in SND_list]
+            output1 = SND1(inputv)
+            output2 = SND2(inputv)
+            output3 = SND3(inputv)
 
-            errD_real_list = []
-            for output_x in output_list:
-                errD_real_x = criterion(output_x, labelv)
-                errD_real_x.backward(retain_graph=True)
-                errD_real_list.append(errD_real_x)
+            errD1_real = criterion(output1, labelv)
+            errD1_real.backward(retain_graph=True)
+            errD2_real = criterion(output2, labelv)
+            errD2_real.backward(retain_graph=True)
+            errD3_real = criterion(output3, labelv)
+            errD3_real.backward(retain_graph=True)
 
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
         noisev = Variable(noise)
         fake = G(noisev)
         labelv = Variable(label.fill_(fake_label))
-        
-        output_list = [SNDx(fake.detach()) for SNDx in SND_list]
+        output1 = SND1(fake.detach())
+        output2 = SND2(fake.detach())
+        output3 = SND3(fake.detach())
 
         if i % DE_TRAIN_INTERVAL == 0:
-            errD_fake_list = []
-            errD_list = []
-            for output_x in output_list:
-                errD_fake_x = criterion(output_x, labelv)
-                errD_fake_x.backward(retain_graph=True)
-                errD_fake_list.append(errD_fake_x)
-            for [errD_real_x, errD_fake_x] in zip(errD_real_list, errD_fake_list):
-                errD_x = errD_real_x + errD_fake_x
-                errD_list.append(errD_x)
+            errD1_fake = criterion(output1, labelv)
+            errD1_fake.backward(retain_graph=True)
+            errD2_fake = criterion(output2, labelv)
+            errD2_fake.backward(retain_graph=True)
+            errD3_fake = criterion(output3, labelv)
+            errD3_fake.backward(retain_graph=True)
+
+            errD1 = errD1_real + errD1_fake
+            errD2 = errD2_real + errD2_fake
+            errD3 = errD3_real + errD3_fake
         
         if i % DE_TRAIN_INTERVAL == 0:
-            for optimizerSNDx in optimizerSND_list:
-                optimizerSNDx.step()
+            optimizerSND1.step()
+            optimizerSND2.step()
+            optimizerSND3.step()
 
         ############################
         # (2) Run E network: given X and context c, output weights W of length len(D_i)
@@ -192,11 +203,10 @@ for epoch in range(200):
         # W[2] = 1
         # print("W override ", W)
 
-        output_weight_list = []
-        for [output_x, W_x] in zip(output_list, W):
-            output_weight_x = torch.mul(output_x, W_x)
-            output_weight_list.append(output_weight_x)
-        stacked = torch.stack(output_weight_list)
+        output_weight1 = torch.mul(output1, W[0])
+        output_weight2 = torch.mul(output2, W[1])
+        output_weight3 = torch.mul(output3, W[2])
+        stacked = torch.stack((output_weight1, output_weight2, output_weight3))
         E_G_z1 = torch.sum(stacked.mean(dim=1))
         ############################
         # (3) Update G network: maximize log(D(G(z))*E(X,c)) /////formerly: maximize log(D(G(z)))
@@ -205,20 +215,19 @@ for epoch in range(200):
         if step % n_dis == 0:
             G.zero_grad()
             labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-            output_list = [SNDx(fake) for SNDx in SND_list]
-            output_weight_list = []
-            for [output_x, W_x] in zip(output_list, W):
-                output_weight_x = torch.mul(output_x, W_x)
-                output_weight_list.append(output_weight_x)
-            stacked = torch.stack(output_weight_list)
+            output1 = SND1(fake)
+            output2 = SND2(fake)
+            output3 = SND3(fake)
+            output_weight1 = torch.mul(output1, W[0])
+            output_weight2 = torch.mul(output2, W[1])
+            output_weight3 = torch.mul(output3, W[2])
+            stacked = torch.stack((output_weight1, output_weight2, output_weight3))
             E_G_z2 = torch.sum(stacked.mean(dim=1))
 
-            errG_list = []
-            for [output_x, W_x] in zip(output_list, W):
-                errG_x = torch.mul(criterion(output_x, labelv), W_x)
-                errG_list.append(errG_x)
-            #errG = errG1 + errG2 + errG3
-            errG = sum(errG_list)
+            errG1 = torch.mul(criterion(output1, labelv), W[0])
+            errG2 = torch.mul(criterion(output2, labelv), W[1])
+            errG3 = torch.mul(criterion(output3, labelv), W[2])
+            errG = errG1 + errG2 + errG3
             # print("errG1 ", errG1)
             # print("errG2 ", errG2)
             # print("errG3 ", errG3)
@@ -238,33 +247,62 @@ for epoch in range(200):
             optimizerE.step()
 
         if i % 20 == 0:
-            message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
-            for ix in range(len(errD_list)):
-                errD_x = errD_list[ix]
-                message += 'Loss_D' + str(ix + 1) + ': ' + str(errD_x.data[0])
-            message += 'Loss_G: ' + str(errG.data[0]) + '= Loss_log(D(G(z))*E(X,c)) E(G(z)): ' + str(E_G_z1) + '/' + str(E_G_z2)
-            print(message)
-
-            #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
-            #         errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
+            print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
+                     errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
                     '%s/real_samples.png' % 'log',
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/Earray_fake_samples_epoch_%03d.png' % ('log', epoch),
+                    '%s/E_fake_samples_epoch_%03d.png' % ('log', epoch),
                     normalize=True)
 
 
     # do checkpointing
 torch.save(G.state_dict(), '%s/netG_epoch_%d.pth' % ('log', epoch))
-for ix in range(len(SND_list)):
-    ip = str(ix + 1)
-    SND_x = SND_list[i]
-    torch.save(SND_x.state_dict(), '%s/netD' + ip + '_epoch_%d.pth' % ('log', epoch))
-#torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch)) 
-#torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
-#torch.save(SND3.state_dict(), '%s/netD3_epoch_%d.pth' % ('log', epoch)) 
-torch.save(E.state_dict(), '%s/netEarray_epoch_%d.pth' % ('log', epoch)) 
+torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch)) 
+torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
+torch.save(SND3.state_dict(), '%s/netD3_epoch_%d.pth' % ('log', epoch)) 
+torch.save(E.state_dict(), '%s/netE_epoch_%d.pth' % ('log', epoch)) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
