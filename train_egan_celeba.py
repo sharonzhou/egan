@@ -10,7 +10,7 @@ import torch.backends.cudnn as cudnn
 
 import random
 import argparse
-from models.models_egan import _netG, _netE, _netD_list
+from models.models_egan_celeba import _netG, _netE, _netD_list
 
 # TODO: 
 # 1. dataset: Celeba
@@ -41,21 +41,12 @@ parser.add_argument('--batchsize', type=int, default=64, help='training batch si
 opt = parser.parse_args()
 print(opt)
 
-# dataset = datasets.ImageFolder(root='/home/chao/zero/datasets/cfp-dataset/Data/Images',
-#                            transform=transforms.Compose([
-#                                transforms.Scale(32),
-#                                transforms.CenterCrop(32),
-#                                transforms.ToTensor(),
-#                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-#                            ])
-#                                       )
-
-dataset = datasets.CIFAR10(root='dataset', download=True,
-                           transform=transforms.Compose([
-                               transforms.Scale(32),
-                               transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-]))
+dataset = datasets.ImageFolder(root='/sailhome/sharonz/celeba/',
+                            transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                            ])
+                        )
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchsize,
                                          shuffle=True, num_workers=int(2))
@@ -93,7 +84,7 @@ for SNDx in SND_list:
     SNDx.apply(weight_filler)
 E.apply(weight_filler)
 
-input = torch.FloatTensor(opt.batchsize, 3, 32, 32)
+input = torch.FloatTensor(opt.batchsize, 3, 64, 64)
 noise = torch.FloatTensor(opt.batchsize, nz, 1, 1)
 fixed_noise = torch.FloatTensor(opt.batchsize, nz, 1, 1).normal_(0, 1)
 label = torch.FloatTensor(opt.batchsize)
@@ -127,6 +118,8 @@ for epoch in range(200):
         step = epoch * len(dataloader) + i
         
         real_cpu, img_context = data
+        print("input size, context size", real_cpu.size(), img_context.size())
+
         batch_size = real_cpu.size(0)
 
         input.resize_(real_cpu.size()).copy_(real_cpu)
@@ -145,6 +138,8 @@ for epoch in range(200):
 
             errD_real_list = []
             for output_x in output_list:
+                print("outputx size", output_x.size())
+                print("labelv size", labelv.size())
                 errD_real_x = criterion(output_x, labelv)
                 errD_real_x.backward(retain_graph=True)
                 errD_real_list.append(errD_real_x)
@@ -179,10 +174,10 @@ for epoch in range(200):
         ###########################
         img_context = img_context.float().cuda() # size 64
         img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
-        img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 32 x 32
+        img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
 
         contextual_input = torch.cat((inputv, img_context), -1)
-        W = E(contextual_input) # 64 x 3 x 32 x 64
+        W = E(contextual_input) # 64 x 3 x 64 x 64
         W = torch.sum(W, dim=0) # size 3
         W = torch.div(W, W.sum()) # normalize weights (sum to 1)
 
