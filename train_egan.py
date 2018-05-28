@@ -13,6 +13,11 @@ import argparse
 # from models.models_egan import _netG, _netD1, _netD2, _netD3
 from models.models_egan import _netG, _netD1, _netD2, _netD3, _netE
 
+# TODO: 
+# 1. array-ify
+# 2. adding context to E's input
+# 3. changing Adam optim for D_i to SGD (try and see if better)
+
     # 0. [reg GAN] Critic/G generates Z 
     # 1. [reg GAN] D_i outputs p_i(fake)
     # 2. [reg GAN] D_i gets better in regular GAN (but G does not update)
@@ -186,18 +191,16 @@ for epoch in range(200):
         # print('inputv', inputv.size())
         # output = torch.mm(W, torch.stack((output1, output2, output3)))
         # output = torch.mean(output, 1)
-        W = E(inputv)
-        W = torch.sum(W, dim=0)
+        W = E(inputv) # 64 x 3
+        W = torch.sum(W, dim=0) # size 3
         W = torch.div(W, W.sum()) # normalize weights (sum to 1)
         # W = torch.mm(torch.stack((output1, output2, output3)), W) # size (3,1)
         # W = torch.diag(W) # relevant weights * D_i outputs
         
-        print("W ", W)
-
         # Override W for debugging
-        W[0] = 0
-        W[1] = 0
-        W[2] = 1
+        # W[0] = 0
+        # W[1] = 0
+        # W[2] = 1
         # print("W override ", W)
 
         output_weight1 = torch.mul(output1, W[0])
@@ -205,7 +208,6 @@ for epoch in range(200):
         output_weight3 = torch.mul(output3, W[2])
         stacked = torch.stack((output_weight1, output_weight2, output_weight3))
         E_G_z1 = torch.sum(stacked.mean(dim=1))
-        print("E_G_z1 ", E_G_z1)
         ############################
         # (3) Update G network: maximize log(D(G(z))*E(X,c)) /////formerly: maximize log(D(G(z)))
         # (4) Update E network: minimize log(D(G(z))*E(X,c))
@@ -221,7 +223,6 @@ for epoch in range(200):
             output_weight3 = torch.mul(output3, W[2])
             stacked = torch.stack((output_weight1, output_weight2, output_weight3))
             E_G_z2 = torch.sum(stacked.mean(dim=1))
-            print("E_G_z2 ", E_G_z2)
 
             errG1 = torch.mul(criterion(output1, labelv), W[0])
             errG2 = torch.mul(criterion(output2, labelv), W[1])
