@@ -32,7 +32,7 @@ parser.add_argument('--nz', type=int, default=128, help='dimention of lantent no
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
 
 opt = parser.parse_args()
-# print(opt)
+print(opt)
 
 # dataset = datasets.ImageFolder(root='/home/chao/zero/datasets/cfp-dataset/Data/Images',
 #                            transform=transforms.Compose([
@@ -118,7 +118,7 @@ optimizerSND2 = optim.Adam(SND2.parameters(), lr=0.000002, betas=(0, 0.9))
 optimizerSND3 = optim.Adam(SND3.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
-DE_train_interval = 600
+DE_TRAIN_INTERVAL = 1
 for epoch in range(200):
     # print("Epoch", epoch, "starting")
     for i, data in enumerate(dataloader, 0):
@@ -139,11 +139,11 @@ for epoch in range(200):
         SND2.zero_grad()
         SND3.zero_grad()
 
-        output1 = SND1(inputv)
-        output2 = SND2(inputv)
-        output3 = SND3(inputv)
+        if i % DE_TRAIN_INTERVAL == 0:
+            output1 = SND1(inputv)
+            output2 = SND2(inputv)
+            output3 = SND3(inputv)
 
-        if i % DE_train_interval == 0:
             errD1_real = criterion(output1, labelv)
             errD1_real.backward(retain_graph=True)
             errD2_real = criterion(output2, labelv)
@@ -160,7 +160,7 @@ for epoch in range(200):
         output2 = SND2(fake.detach())
         output3 = SND3(fake.detach())
 
-        if i % DE_train_interval == 0:
+        if i % DE_TRAIN_INTERVAL == 0:
             errD1_fake = criterion(output1, labelv)
             errD1_fake.backward(retain_graph=True)
             errD2_fake = criterion(output2, labelv)
@@ -172,7 +172,7 @@ for epoch in range(200):
             errD2 = errD2_real + errD2_fake
             errD3 = errD3_real + errD3_fake
         
-        if i % DE_train_interval == 0:
+        if i % DE_TRAIN_INTERVAL == 0:
             optimizerSND1.step()
             optimizerSND2.step()
             optimizerSND3.step()
@@ -184,10 +184,28 @@ for epoch in range(200):
         ###########################
         # print("dimensions of concat output: ", torch.stack((output1, output2, output3)).size())
         # print('inputv', inputv.size())
+        # output = torch.mm(W, torch.stack((output1, output2, output3)))
+        # output = torch.mean(output, 1)
         W = E(inputv)
-        output = torch.matmul(W, torch.stack((output1, output2, output3)))
-        output = torch.mean(output, 1)
+        W = torch.sum(W, dim=0)
+        W = torch.div(W, W.sum()) # normalize weights (sum to 1)
+        # W = torch.mm(torch.stack((output1, output2, output3)), W) # size (3,1)
+        # W = torch.diag(W) # relevant weights * D_i outputs
+        
+        print("W ", W)
 
+        # Override W for debugging
+        W[0] = 0
+        W[1] = 0
+        W[2] = 1
+        # print("W override ", W)
+
+        output_weight1 = torch.mul(output1, W[0])
+        output_weight2 = torch.mul(output2, W[1])
+        output_weight3 = torch.mul(output3, W[2])
+        stacked = torch.stack((output_weight1, output_weight2, output_weight3))
+        E_G_z1 = torch.sum(stacked.mean(dim=1))
+        print("E_G_z1 ", E_G_z1)
         ############################
         # (3) Update G network: maximize log(D(G(z))*E(X,c)) /////formerly: maximize log(D(G(z)))
         # (4) Update E network: minimize log(D(G(z))*E(X,c))
@@ -195,24 +213,41 @@ for epoch in range(200):
         if step % n_dis == 0:
             G.zero_grad()
             labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
+            output1 = SND1(fake)
+            output2 = SND2(fake)
+            output3 = SND3(fake)
+            output_weight1 = torch.mul(output1, W[0])
+            output_weight2 = torch.mul(output2, W[1])
+            output_weight3 = torch.mul(output3, W[2])
+            stacked = torch.stack((output_weight1, output_weight2, output_weight3))
+            E_G_z2 = torch.sum(stacked.mean(dim=1))
+            print("E_G_z2 ", E_G_z2)
 
-            errG = criterion(output, labelv)
+            errG1 = torch.mul(criterion(output1, labelv), W[0])
+            errG2 = torch.mul(criterion(output2, labelv), W[1])
+            errG3 = torch.mul(criterion(output3, labelv), W[2])
+            errG = errG1 + errG2 + errG3
+            # print("errG1 ", errG1)
+            # print("errG2 ", errG2)
+            # print("errG3 ", errG3)
+            # print("Total errG ", errG)
             errG.backward(retain_graph=True)
 
-            DG_E = output.data.mean()
+            # DG_E = output.data.mean()
+            # DG_E = errG3
 
             optimizerG.step()
 
         # (4) Update E network: minimize log(D(G(z))*E(X,c))
-        if i % DE_train_interval == 0:
+        if i % DE_TRAIN_INTERVAL == 0:
             E.zero_grad()
             errE = -errG
             errE.backward(retain_graph=True)
             optimizerE.step()
 
         if i % 20 == 0:
-            print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f Loss_log(D(G(z))*E(X,c)): %.4f' % (epoch, 200, i, len(dataloader),
-                     errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], DG_E))
+            print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
+                     errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
                     '%s/real_samples.png' % 'log',
@@ -229,6 +264,19 @@ torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch))
 torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
 torch.save(SND3.state_dict(), '%s/netD3_epoch_%d.pth' % ('log', epoch)) 
 torch.save(E.state_dict(), '%s/netE_epoch_%d.pth' % ('log', epoch)) 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
