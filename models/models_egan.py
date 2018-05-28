@@ -117,3 +117,4 @@ class _netD3(nn.Module):
         return output
 
 
+_netD_list = [_netD1, _netD2, _netD3]
