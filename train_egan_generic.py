@@ -125,7 +125,7 @@ if opt.cuda:
 
 optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND_list = []
-lr_list = [0.001, 0.000002, 0.0002]
+lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
