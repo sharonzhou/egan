@@ -303,5 +303,4 @@ class _netD4(nn.Module):
         output = output.view(-1, 1).squeeze(1)
         return output
 
-# _netD_list = [_netD1, _netD2, _netD3, _netD4]
-_netD_list = [_netD1]
+_netD_list = [_netD1, _netD2, _netD3, _netD4]
