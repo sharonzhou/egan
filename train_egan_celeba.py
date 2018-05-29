@@ -41,12 +41,19 @@ parser.add_argument('--batchsize', type=int, default=64, help='training batch si
 opt = parser.parse_args()
 print(opt)
 
-dataset = datasets.ImageFolder(root='/sailhome/sharonz/celeba/',
+if os.path.isfile('celeba.pickle'):
+    print('loading dataset cached')
+    dataset = pickle.load(open('celeba.pickle', 'rb'))
+else:
+    print('loading dataset new')
+    dataset = datasets.ImageFolder(root='/sailhome/sharonz/celeba/',
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                             ])
                         )
+    print('dumping datset to celeba.pickle')
+    pickle.dump(dataset, open('celeba.pickle', 'wb'))
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchsize,
                                          shuffle=True, num_workers=int(2))
@@ -248,18 +255,18 @@ for epoch in range(200):
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/arrcontext_E_fake_samples_epoch_%03d.png' % ('log', epoch),
+                    '%s/celeba_E_fake_samples_epoch_%03d.png' % ('log', epoch),
                     normalize=True)
 
 
     # do checkpointing
-torch.save(G.state_dict(), '%s/arrcontext_netG_epoch_%d.pth' % ('log', epoch))
+torch.save(G.state_dict(), '%s/celeba_netG_epoch_%d.pth' % ('log', epoch))
 for ix in range(len(SND_list)):
     ip = str(ix + 1)
     SND_x = SND_list[i]
-    torch.save(SND_x.state_dict(), '%s/arrcontext_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
+    torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
 #torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch)) 
 #torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
 #torch.save(SND3.state_dict(), '%s/netD3_epoch_%d.pth' % ('log', epoch)) 
-torch.save(E.state_dict(), '%s/arrcontext_netE_epoch_%d.pth' % ('log', epoch)) 
+torch.save(E.state_dict(), '%s/celeba_netE_epoch_%d.pth' % ('log', epoch)) 
 
