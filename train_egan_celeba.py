@@ -30,6 +30,8 @@ from models.models_egan_celeba import _netG, _netE, _netD_list
 # 5. use o to train G: if o is correct, penalize, else encourage = loss_G (==loss_critic)
 # 6. loss_actor = -loss_G
 
+# torch.cuda.empty_cache()
+
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(3), help='gpu ids: e.g. 0,1,2, 0,2.')
@@ -40,6 +42,9 @@ parser.add_argument('--batchsize', type=int, default=64, help='training batch si
 
 opt = parser.parse_args()
 print(opt)
+
+import pickle
+import os.path
 
 if os.path.isfile('celeba.pickle'):
     print('loading dataset cached')
@@ -82,7 +87,7 @@ n_dis = opt.n_dis
 nz = opt.nz
 
 G = _netG(nz, 3, 64)
-SND_list = [_netD_x(3,64) for _netD_x in _netD_list]
+SND_list = [_netD_x(3, 64) for _netD_x in _netD_list]
 E = _netE(3, 64, 0, 3)
 print(G)
 print(E)
@@ -120,12 +125,10 @@ optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
 DE_TRAIN_INTERVAL = 1
 for epoch in range(200):
-    # print("Epoch", epoch, "starting")
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
         
         real_cpu, img_context = data
-        print("input size, context size", real_cpu.size(), img_context.size())
 
         batch_size = real_cpu.size(0)
 
@@ -145,8 +148,6 @@ for epoch in range(200):
 
             errD_real_list = []
             for output_x in output_list:
-                print("outputx size", output_x.size())
-                print("labelv size", labelv.size())
                 errD_real_x = criterion(output_x, labelv)
                 errD_real_x.backward(retain_graph=True)
                 errD_real_list.append(errD_real_x)
@@ -219,16 +220,9 @@ for epoch in range(200):
             for [output_x, W_x] in zip(output_list, W):
                 errG_x = torch.mul(criterion(output_x, labelv), W_x)
                 errG_list.append(errG_x)
-            #errG = errG1 + errG2 + errG3
-            errG = sum(errG_list)
-            # print("errG1 ", errG1)
-            # print("errG2 ", errG2)
-            # print("errG3 ", errG3)
-            # print("Total errG ", errG)
-            errG.backward(retain_graph=True)
 
-            # DG_E = output.data.mean()
-            # DG_E = errG3
+            errG = sum(errG_list)
+            errG.backward(retain_graph=True)
 
             optimizerG.step()
 
@@ -265,8 +259,5 @@ for ix in range(len(SND_list)):
     ip = str(ix + 1)
     SND_x = SND_list[i]
     torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
-#torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch)) 
-#torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
-#torch.save(SND3.state_dict(), '%s/netD3_epoch_%d.pth' % ('log', epoch)) 
 torch.save(E.state_dict(), '%s/celeba_netE_epoch_%d.pth' % ('log', epoch)) 
 

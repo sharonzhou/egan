@@ -138,7 +138,6 @@ for epoch in range(200):
         step = epoch * len(dataloader) + i
         
         real_cpu, img_context = data
-        print("input size, context size", real_cpu.size(), img_context.size())
 
         batch_size = real_cpu.size(0)
 
@@ -158,8 +157,6 @@ for epoch in range(200):
 
             errD_real_list = []
             for output_x in output_list:
-                print("outputx size", output_x.size())
-                print("labelv size", labelv.size())
                 errD_real_x = criterion(output_x, labelv)
                 errD_real_x.backward(retain_graph=True)
                 errD_real_list.append(errD_real_x)
