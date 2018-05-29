@@ -227,7 +227,7 @@ class _netD1(nn.Module):
 
 class _netD2(nn.Module):
     def __init__(self, nc, ndf):
-        super(_netD1, self).__init__()
+        super(_netD2, self).__init__()
 
         self.main = nn.Sequential(
             SNConv2d(nc, ndf, 5, 2, 2), 
@@ -248,7 +248,7 @@ class _netD2(nn.Module):
 
 class _netD3(nn.Module):
     def __init__(self, nc, ndf):
-        super(_netD1, self).__init__()
+        super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
@@ -275,9 +275,9 @@ class _netD3(nn.Module):
         output = output.view(-1, 1).squeeze(1)
         return output
 
-class _netD3(nn.Module):
+class _netD4(nn.Module):
     def __init__(self, nc, ndf):
-        super(_netD1, self).__init__()
+        super(_netD4, self).__init__()
 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
@@ -303,4 +303,5 @@ class _netD3(nn.Module):
         output = output.view(-1, 1).squeeze(1)
         return output
 
+# _netD_list = [_netD1, _netD2, _netD3, _netD4]
 _netD_list = [_netD1]
