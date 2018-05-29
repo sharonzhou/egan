@@ -12,26 +12,6 @@ import random
 import argparse
 from models.models_egan_celeba import _netG, _netE, _netD_list
 
-# TODO: 
-# 1. dataset: Celeba
-# 2. 10 D_i's
-
-# 1. array-ify
-# 2. adding context to E's input
-# 3. changing Adam optim for D_i to SGD (try and see if better)
-
-# 0. [reg GAN] Critic/G generates Z 
-# 1. [reg GAN] D_i outputs p_i(fake)
-# 2. [reg GAN] D_i gets better in regular GAN (but G does not update)
-# 3. [independent of 1 + 2] given X and context, 
-    # Actor outputs weights W of length len(D_i) 
-    # (dist/pdf of action space)
-# 4. multiply p_i * W to get final output o
-# 5. use o to train G: if o is correct, penalize, else encourage = loss_G (==loss_critic)
-# 6. loss_actor = -loss_G
-
-# torch.cuda.empty_cache()
-
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(3), help='gpu ids: e.g. 0,1,2, 0,2.')
@@ -254,10 +234,10 @@ for epoch in range(200):
 
 
     # do checkpointing
-torch.save(G.state_dict(), '%s/celeba_netG_epoch_%d.pth' % ('log', epoch))
-for ix in range(len(SND_list)):
-    ip = str(ix + 1)
-    SND_x = SND_list[i]
-    torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
-torch.save(E.state_dict(), '%s/celeba_netE_epoch_%d.pth' % ('log', epoch)) 
+    torch.save(G.state_dict(), '%s/celeba_netG_epoch_%d.pth' % ('log', epoch))
+    for ix in range(len(SND_list)):
+        ip = str(ix + 1)
+        SND_x = SND_list[i]
+        torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
+    torch.save(E.state_dict(), '%s/celeba_netE_epoch_%d.pth' % ('log', epoch)) 
 
