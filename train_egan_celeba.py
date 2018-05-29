@@ -10,7 +10,6 @@ import torch.backends.cudnn as cudnn
 
 import random
 import argparse
-from models.models_egan_celeba import _netG, _netE, _netD_list
 
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
@@ -19,9 +18,17 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=1, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=128, help='dimention of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
+parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
 print(opt)
+
+import importlib
+
+models_egan = importlib.import_module("models." + opt.model)
+_netG = models_egan._netG
+_netE = models_egan._netE
+_netD_list =models_egan._netD_list
 
 import pickle
 import os.path
