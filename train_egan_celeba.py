@@ -17,7 +17,7 @@ parser.add_argument('--gpu_ids', default=range(3), help='gpu ids: e.g. 0,1,2, 0,
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=1, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=128, help='dimention of lantent noise')
-parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
+parser.add_argument('--batchsize', type=int, default=1024, help='training batch size')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
@@ -171,8 +171,6 @@ for epoch in range(200):
         img_context = img_context.float().cuda() # size 64
         img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
         img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
-
-        print("context size", img_context.size())
 
         W = E(inputv, img_context, nd, EPSILON) # batchsize x nd
         W = torch.sum(W, dim=0) # nd
