@@ -111,6 +111,7 @@ for [SNDx, lrx] in zip(SND_list, lr_list):
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
 DE_TRAIN_INTERVAL = 1
+EPSILON = 0.1
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
@@ -172,9 +173,12 @@ for epoch in range(200):
         img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
 
         contextual_input = torch.cat((inputv, img_context), -1)
-        W = E(contextual_input) # 64 x 3 x 64 x 64
+        W = E(contextual_input, EPSILON) # 64 x 3 x 64 x 64
+        # print("1w", W)
         W = torch.sum(W, dim=0) # size 3
+        # print("2w", W)
         W = torch.div(W, W.sum()) # normalize weights (sum to 1)
+        # print("3w", W)
 
         # Override W for debugging
         # W[0] = 0
