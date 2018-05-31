@@ -172,14 +172,11 @@ for epoch in range(200):
         img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
         img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
 
-        contextual_input = torch.cat((inputv, img_context), -1)
-        print("contextual_input size", contextual_input.size())
-        W = E(contextual_input, nd, EPSILON) # 64 x 3 x 64 x 64
-        print("1w", W.size())
-        W = torch.sum(W, dim=0) # size 3
-        print("2w", W.size())
+        print("context size", img_context.size())
+
+        W = E(inputv, img_context, nd, EPSILON) # batchsize x nd
+        W = torch.sum(W, dim=0) # nd
         W = torch.div(W, W.sum()) # normalize weights (sum to 1)
-        print("3w", W.size())
 
         # Override W for debugging
         # W[0] = 0

@@ -37,24 +37,45 @@ class _netG(nn.Module):
 
 # Actor
 class _netE(nn.Module):
-    def __init__(self, nc, ndf, ndiscriminators):
+    def __init__(self, nc, nef, ndiscriminators):
         super(_netE, self).__init__()
 
         self.main = nn.Sequential(
             # input is (nc * ncontext) x 32 x 32 TODO add ncontext
             #nn.Linear(32, ndiscriminators, bias=False),
-            SNConv2d(nc, ndf, 7, 4, 1, bias=True),
+            SNConv2d(nc, nef, 7, 4, 1, bias=True),
             nn.LeakyReLU(0.1, inplace=True),
-            SNConv2d(ndf, ndiscriminators, 7, 4, 1, bias=False),
+            SNConv2d(nef, ndiscriminators, 7, 4, 1, bias=False),
             nn.Sigmoid()
         )
-    def forward(self, input, ndiscriminators, eps):
+
+        self.image = nn.Sequential(
+            SNConv2d(nc, nef, 4, 2, 1, bias=True),
+            nn.LeakyReLU(0.1, inplace=True),
+            SNConv2d(nef, nef * 2, 4, 2, 1, bias=True),
+            nn.LeakyReLU(0.1, inplace=True),
+            SNConv2d(nef * 2, nef * 4, 4, 2, 1, bias=True),
+            nn.LeakyReLU(0.1, inplace=True),
+            SNConv2d(nef * 4, ndiscriminators, 7, 4, 1, bias=False),
+            nn.LeakyReLU(0.1, inplace=True),
+        )
+
+        self.context = nn.Sequential(
+            nn.Linear(nc * nef * nef + ndiscriminators, nef * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(nef * 8, ndiscriminators),
+            nn.Sigmoid()
+        )
+
+    def forward(self, input, context, ndiscriminators, eps):
         if random.random() < eps:
-            output = torch.rand((64, ndiscriminators, 3, 7)).cuda()
+            output = torch.rand((64, ndiscriminators)).cuda()
         else:
-            output = self.main(input) 
-            print("main size", output.size())
-        return output.view(-1, ndiscriminators).squeeze(1)
+            output = self.image(input) 
+            next_input = torch.cat((output.view(output.size(0), -1), context.view(context.size(0), -1)), -1)
+            output = self.context(next_input)
+        return output
+        # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
     def __init__(self, nc, ndf):
