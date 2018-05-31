@@ -37,7 +37,7 @@ class _netG(nn.Module):
 
 # Actor
 class _netE(nn.Module):
-    def __init__(self, nc, ndf, ncontext, ndiscriminators):
+    def __init__(self, nc, ndf, ndiscriminators):
         super(_netE, self).__init__()
 
         self.main = nn.Sequential(
@@ -45,15 +45,16 @@ class _netE(nn.Module):
             #nn.Linear(32, ndiscriminators, bias=False),
             SNConv2d(nc, ndf, 7, 4, 1, bias=True),
             nn.LeakyReLU(0.1, inplace=True),
-            SNConv2d(ndf, 3, 7, 4, 1, bias=False),
+            SNConv2d(ndf, ndiscriminators, 7, 4, 1, bias=False),
             nn.Sigmoid()
         )
-    def forward(self, input, eps):
+    def forward(self, input, ndiscriminators, eps):
         if random.random() < eps:
-            output = torch.rand((64, 3, 3, 7)).cuda()
+            output = torch.rand((64, ndiscriminators, 3, 7)).cuda()
         else:
             output = self.main(input) 
-        return output.view(-1, 3).squeeze(1)
+            print("main size", output.size())
+        return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
     def __init__(self, nc, ndf):
@@ -200,42 +201,64 @@ class _netD5(nn.Module):
         output = output.view(-1, 1).squeeze(1)
         return output
 
+# TODO: convert to below with correct dimensions
 class _netD6(nn.Module):
-    # BEGAN
+    # AAE
     def __init__(self, nc, ndf):
         super(_netD6, self).__init__()
 
-        # Upsampling
-        self.down = nn.Sequential(
-            nn.Conv2d(3, 64, 3, 2, 1),
-            nn.ReLU(),
-        )
-        # Fully-connected layers
-        self.down_size = (64 // 2)
-        down_dim = 64 * (64 // 2)**2
-        self.fc = nn.Sequential(
-            nn.Linear(down_dim, 32),
-            nn.BatchNorm1d(32, 0.8),
-            nn.ReLU(inplace=True),
-            nn.Linear(32, down_dim),
-            nn.BatchNorm1d(down_dim),
-            nn.ReLU(inplace=True)
-        )
-        # Upsampling
-        self.up = nn.Sequential(
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(64, 3, 3, 1, 1)
-        )
-        self.final = nn.Sequential(
-            nn.MaxPool3d([3, 64, 64]),
+        self.main = nn.Sequential(
+            nn.Linear(64, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, 1),
+            nn.MaxPool3d([3, 64, 1]),
             nn.Sigmoid()
         )
     def forward(self, input):
-        out = self.down(input)
-        out = self.fc(out.view(out.size(0), -1))
-        out = self.up(out.view(out.size(0), 64, self.down_size, self.down_size))
-        out = self.final(out)
-        return out
+        output = self.main(input)
+        output = output.view(-1, 1).squeeze(1)
+        return output
+
+# class _netD6(nn.Module):
+#     # BEGAN
+#     def __init__(self, nc, ndf):
+#         super(_netD6, self).__init__()
+
+#         # Upsampling
+#         self.down = nn.Sequential(
+#             nn.Conv2d(3, 64, 3, 2, 1),
+#             nn.ReLU(),
+#         )
+#         # Fully-connected layers
+#         self.down_size = (64 // 2)
+#         down_dim = 64 * (64 // 2)**2
+#         self.fc = nn.Sequential(
+#             nn.Linear(down_dim, 32),
+#             nn.BatchNorm1d(32, 0.8),
+#             nn.ReLU(inplace=True),
+#             nn.Linear(32, down_dim),
+#             nn.BatchNorm1d(down_dim),
+#             nn.ReLU(inplace=True)
+#         )
+#         # Upsampling
+#         self.up = nn.Sequential(
+#             nn.Upsample(scale_factor=2),
+#             nn.Conv2d(64, 3, 3, 1, 1)
+#         )
+#         self.final = nn.Sequential(
+#             nn.MaxPool3d([3, 64, 64]),
+#             nn.Sigmoid()
+#         )
+#     def forward(self, input):
+#         out = self.down(input)
+#         out = self.fc(out.view(out.size(0), -1))
+#         out = self.up(out.view(out.size(0), 64, self.down_size, self.down_size))
+#         out = self.final(out)
+#         print("d6 out", out)
+#         print("d6 out size", out.size())
+#         return out
 
 class _netD7(nn.Module):
     # BGAN

@@ -75,7 +75,8 @@ nz = opt.nz
 
 G = _netG(nz, 3, 64)
 SND_list = [_netD_x(3, 64) for _netD_x in _netD_list]
-E = _netE(3, 64, 0, 3)
+nd = len(SND_list)
+E = _netE(3, 64, nd)
 print(G)
 print(E)
 G.apply(weight_filler)
@@ -147,7 +148,6 @@ for epoch in range(200):
         labelv = Variable(label.fill_(fake_label))
         
         output_list = [SNDx(fake.detach()) for SNDx in SND_list]
-
         if i % DE_TRAIN_INTERVAL == 0:
             errD_fake_list = []
             errD_list = []
@@ -173,12 +173,13 @@ for epoch in range(200):
         img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
 
         contextual_input = torch.cat((inputv, img_context), -1)
-        W = E(contextual_input, EPSILON) # 64 x 3 x 64 x 64
-        # print("1w", W)
+        print("contextual_input size", contextual_input.size())
+        W = E(contextual_input, nd, EPSILON) # 64 x 3 x 64 x 64
+        print("1w", W.size())
         W = torch.sum(W, dim=0) # size 3
-        # print("2w", W)
+        print("2w", W.size())
         W = torch.div(W, W.sum()) # normalize weights (sum to 1)
-        # print("3w", W)
+        print("3w", W.size())
 
         # Override W for debugging
         # W[0] = 0
@@ -187,9 +188,14 @@ for epoch in range(200):
         # print("W override ", W)
 
         output_weight_list = []
+        # print("W value", W)
+        # print("output_list", output_list)
+        # print("zip", len(list(zip(output_list, W))))
         for [output_x, W_x] in zip(output_list, W):
             output_weight_x = torch.mul(output_x, W_x)
+            # print("output_weight_x", output_weight_x)
             output_weight_list.append(output_weight_x)
+        # print("output_weight_list", output_weight_list)
         stacked = torch.stack(output_weight_list)
         E_G_z1 = torch.sum(stacked.mean(dim=1))
         ############################
