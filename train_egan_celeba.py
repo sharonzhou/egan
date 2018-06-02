@@ -246,10 +246,9 @@ for epoch in range(200):
 
 
     # do checkpointing
-    torch.save(G.state_dict(), '%s/celeba_netG_batch_epoch_%d.pth' % ('log', epoch))
+    torch.save(G.state_dict(), 'log/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
     for ix in range(len(SND_list)):
         ip = str(ix + 1)
         SND_x = SND_list[ix]
-        torch.save(SND_x.state_dict(), '%s/celeba_netD_batch' + ip + '_epoch_%d.pth' % ('log', epoch))
-    torch.save(E.state_dict(), '%s/celeba_netE_batch_epoch_%d.pth' % ('log', epoch)) 
-
+        torch.save(SND_x.state_dict(), 'log/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
+    torch.save(E.state_dict(), 'log/celeba_netE_batch_epoch_' + str(epoch) + '.pth')
