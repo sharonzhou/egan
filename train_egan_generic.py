@@ -273,7 +273,7 @@ for epoch in range(200):
 torch.save(G.state_dict(), '%s/celeba_netG_epoch_%d.pth' % ('log', epoch))
 for ix in range(len(SND_list)):
     ip = str(ix + 1)
-    SND_x = SND_list[i]
+    SND_x = SND_list[ix]
     torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
 #torch.save(SND1.state_dict(), '%s/netD1_epoch_%d.pth' % ('log', epoch)) 
 #torch.save(SND2.state_dict(), '%s/netD2_epoch_%d.pth' % ('log', epoch)) 
