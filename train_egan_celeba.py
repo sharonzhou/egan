@@ -241,15 +241,15 @@ for epoch in range(200):
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/celeba_E_D10_fake_samples_epoch_%03d.png' % ('log', epoch),
+                    '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % ('log', epoch),
                     normalize=True)
 
 
     # do checkpointing
-    torch.save(G.state_dict(), '%s/celeba_netG_epoch_%d.pth' % ('log', epoch))
+    torch.save(G.state_dict(), '%s/celeba_netG_batch_epoch_%d.pth' % ('log', epoch))
     for ix in range(len(SND_list)):
         ip = str(ix + 1)
         SND_x = SND_list[i]
-        torch.save(SND_x.state_dict(), '%s/celeba_netD' + ip + '_epoch_%d.pth' % ('log', epoch))
-    torch.save(E.state_dict(), '%s/celeba_netE_epoch_%d.pth' % ('log', epoch)) 
+        torch.save(SND_x.state_dict(), '%s/celeba_netD_batch' + ip + '_epoch_%d.pth' % ('log', epoch))
+    torch.save(E.state_dict(), '%s/celeba_netE__batchepoch_%d.pth' % ('log', epoch)) 
 

@@ -6,7 +6,7 @@
 #SBATCH --mem=8192
 
 # only use the following on partition with GPU
-####SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:1
 
 # Memory per node specification is in MB. It is optional.
 # The default limit is 3000MB per core.
@@ -25,6 +25,6 @@ echo "SLURMTMPDIR="$SLURMTMPDIR
 echo "working directory = "$SLURM_SUBMIT_DIR
 
 # sample job
-NPROCS=`srun --nodes=${SLURM_NNODES} bash -c '/sailhome/sharonz/bin/trainceleba'`
+NPROCS=`srun --partition=next --nodes=${SLURM_NNODES} /sailhome/sharonz/bin/trainceleba`
 echo NPROCS=$NPROCS
 echo "Done"
