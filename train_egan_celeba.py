@@ -28,7 +28,7 @@ import importlib
 models_egan = importlib.import_module("models." + opt.model)
 _netG = models_egan._netG
 _netE = models_egan._netE
-_netD_list =models_egan._netD_list
+_netD_list = models_egan._netD_list
 
 import pickle
 import os.path

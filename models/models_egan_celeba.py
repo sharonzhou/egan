@@ -124,22 +124,22 @@ class _netD3(nn.Module):
 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            SNConv2d(nc, ndf, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            SNConv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*4) x 8 x 8
-            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            SNConv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
     def forward(self, input):
@@ -153,21 +153,21 @@ class _netD3(nn.Module):
 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            SNConv2d(nc, ndf, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            SNConv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 16),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*16) x 4 x 4
-            nn.Conv2d(ndf * 16, 1, 4, 1, 0, bias=False),
+            SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
     def forward(self, input):
@@ -181,21 +181,21 @@ class _netD4(nn.Module):
 
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
-            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            SNConv2d(nc, ndf, 4, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf) x 32 x 32
-            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            SNConv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*2) x 16 x 16
-            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
+            SNConv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 16),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*16) x 4 x 4
-            nn.Conv2d(ndf * 16, 1, 4, 1, 0, bias=False),
+            SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
     def forward(self, input):
@@ -229,7 +229,7 @@ class _netD6(nn.Module):
 
         # Upsampling
         self.down = nn.Sequential(
-            nn.Conv2d(3, 64, 3, 2, 1),
+            SNConv2d(3, 64, 3, 2, 1),
             nn.ReLU(),
         )
         # Fully-connected layers
@@ -246,7 +246,7 @@ class _netD6(nn.Module):
         # Upsampling
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(64, 3, 3, 1, 1)
+            SNConv2d(64, 3, 3, 1, 1)
         )
         self.final = nn.Sequential(
             nn.MaxPool3d([3, 64, 64]),
@@ -304,7 +304,7 @@ class _netD8(nn.Module):
 
 def cyclegan_discriminator_block(in_filters, out_filters, normalize=True):
     """Returns downsampling layers of each discriminator block"""
-    layers = [nn.Conv2d(in_filters, out_filters, 4, stride=2, padding=1)]
+    layers = [SNConv2d(in_filters, out_filters, 4, stride=2, padding=1)]
     if normalize:
         layers.append(nn.InstanceNorm2d(out_filters))
     layers.append(nn.LeakyReLU(0.2, inplace=True))
@@ -321,7 +321,7 @@ class _netD9(nn.Module):
             *cyclegan_discriminator_block(128, 256),
             *cyclegan_discriminator_block(256, 512),
             nn.ZeroPad2d((1, 0, 1, 0)),
-            nn.Conv2d(512, 1, 4, padding=1),
+            SNConv2d(512, 1, 4, padding=1),
             nn.MaxPool3d([1, 4, 4]),
             nn.Sigmoid()
         )
@@ -331,7 +331,7 @@ class _netD9(nn.Module):
         return output
 
 def dcgan_discriminator_block(in_filters, out_filters, bn=True):
-    block = [   nn.Conv2d(in_filters, out_filters, 3, 2, 1),
+    block = [   SNConv2d(in_filters, out_filters, 3, 2, 1),
                 nn.LeakyReLU(0.2, inplace=True),
                 nn.Dropout2d(0.25)]
     if bn:
