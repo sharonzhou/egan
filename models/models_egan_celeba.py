@@ -58,23 +58,26 @@ class _netE(nn.Module):
             nn.LeakyReLU(0.1, inplace=True),
             SNConv2d(nef * 4, ndiscriminators, 7, 4, 1, bias=False),
             nn.LeakyReLU(0.1, inplace=True),
+            nn.Softmax() # remove once context has been added
         )
 
         self.context = nn.Sequential(
             nn.Linear(nc * nef * nef + ndiscriminators, nef * 8),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(nef * 8, ndiscriminators),
-            nn.Sigmoid()
+            nn.Softmax()
         )
 
-    def forward(self, input, context, ndiscriminators, eps):
-        if random.random() < eps:
-            output = torch.rand((64, ndiscriminators)).cuda()
-        else:
-            output = self.image(input) 
-            next_input = torch.cat((output.view(output.size(0), -1), context.view(context.size(0), -1)), -1)
-            output = self.context(next_input)
-        return output
+    # def forward(self, input, context, ndiscriminators, eps):
+    def forward(self, input, ndiscriminators, eps):
+        # if random.random() < eps:
+        #     output = torch.rand((64, ndiscriminators)).cuda()
+        # else:
+        #     output = self.image(input) 
+        output = self.image(input) 
+            # next_input = torch.cat((output.view(output.size(0), -1), context.view(context.size(0), -1)), -1)
+            # output = self.context(next_input)
+        return output.squeeze(-1).squeeze(-1)
         # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):

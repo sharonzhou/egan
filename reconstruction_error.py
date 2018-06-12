@@ -37,13 +37,14 @@ l2_regularization = 0.001
 num_iter = 500
 l2loss = nn.L1Loss().cuda()
 nz = 128
+input = torch.FloatTensor(64, 3, 64, 64)
 
 for i, data in enumerate(dataloader, 0):
     real_cpu, img_context = data
     image = real_cpu
-    # batch_size = real_cpu.size(0)
-    # input.resize_(real_cpu.size()).copy_(real_cpu)
-    # image = Variable(input)
+    batch_size = real_cpu.size(0)
+    input.resize_(real_cpu.size()).copy_(real_cpu)
+    image = Variable(input)
 
     noise = torch.FloatTensor(64, nz, 1, 1)
     noise = noise.resize_(64, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)

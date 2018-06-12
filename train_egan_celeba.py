@@ -92,7 +92,17 @@ real_label = 1
 fake_label = 0
 
 fixed_noise = Variable(fixed_noise)
-criterion = nn.BCELoss()
+# TODO: Wasserstein distance - look at Wasserstein distance GAN 
+# (D wants to maximize the range of/distance btw real - fake)
+# D wants to max this distance: D(image) - D(G(z))
+# generator G wants to maximize D(G(z))
+criterion = nn.BCELoss() 
+
+dtype = torch.FloatTensor
+
+# TODO: hyperparam tuning here
+alpha = 0.1
+uniform = torch.ones((opt.batchsize, nd)).type(dtype) / nd
 
 if opt.cuda:
     G.cuda()
@@ -102,16 +112,22 @@ if opt.cuda:
     criterion.cuda()
     input, label = input.cuda(), label.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+    dtype = torch.cuda.FloatTensor
+    uniform = uniform.cuda()
 
 optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND_list = []
+# TODO: hyperparam tuning here
 lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+lr_list = [0 for _ in range(10)]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
-DE_TRAIN_INTERVAL = 1
+kl_div_fcn = nn.KLDivLoss().cuda()
+l2_fcn = nn.MSELoss().cuda()
+
 EPSILON = 0.1
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
@@ -132,14 +148,23 @@ for epoch in range(200):
         for SNDx in SND_list:
             SNDx.zero_grad()
 
-        if i % DE_TRAIN_INTERVAL == 0:
-            output_list = [SNDx(inputv) for SNDx in SND_list]
+        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+        for j, SNDx in enumerate(SND_list):
+            loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
 
-            errD_real_list = []
-            for output_x in output_list:
-                errD_real_x = criterion(output_x, labelv)
-                errD_real_x.backward(retain_graph=True)
-                errD_real_list.append(errD_real_x)
+        # TODO: add context - see conditional GANs (w/ classifier)
+        W = E(inputv, nd, EPSILON) # batchsize x nd
+
+        kl_div = - alpha * torch.mean(torch.log(W))
+        loss_D = nd * (torch.mean(torch.mul(W, loss_Ds)) + kl_div)
+        loss_D.backward(retain_graph=True)
+
+        E_G_z1 = loss_D.clone()
+
+        for optimizerSNDx in optimizerSND_list:
+            optimizerSNDx.step()
+        
+        optimizerE.step()
 
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
@@ -147,108 +172,80 @@ for epoch in range(200):
         fake = G(noisev)
         labelv = Variable(label.fill_(fake_label))
         
-        output_list = [SNDx(fake.detach()) for SNDx in SND_list]
-        if i % DE_TRAIN_INTERVAL == 0:
-            errD_fake_list = []
-            errD_list = []
-            for output_x in output_list:
-                errD_fake_x = criterion(output_x, labelv)
-                errD_fake_x.backward(retain_graph=True)
-                errD_fake_list.append(errD_fake_x)
-            for [errD_real_x, errD_fake_x] in zip(errD_real_list, errD_fake_list):
-                errD_x = errD_real_x + errD_fake_x
-                errD_list.append(errD_x)
-        
-        if i % DE_TRAIN_INTERVAL == 0:
-            for optimizerSNDx in optimizerSND_list:
-                optimizerSNDx.step()
+        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+        for j, SNDx in enumerate(SND_list):
+            loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
+
+        W = E(inputv, nd, EPSILON) # batchsize x nd
+
+        kl_div = - alpha * torch.mean(torch.log(W))
+        loss_D = nd * (torch.mean(torch.mul(W, loss_Ds)) + kl_div)
+        loss_D.backward(retain_graph=True)
+
+        E_G_z2 = loss_D.clone()
+
+        for optimizerSNDx in optimizerSND_list:
+            optimizerSNDx.step()
+
+        optimizerE.step()
 
         ############################
         # (2) Run E network: given X and context c, output weights W of length len(D_i)
         # (dist/pdf of action space)
         # multiply p_i * W to get final output o
         ###########################
-        img_context = img_context.float().cuda() # size 64
-        img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
-        img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
+        # img_context = img_context.float().cuda() # size 64
+        # img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
+        # img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
 
-        W = E(inputv, img_context, nd, EPSILON) # batchsize x nd
-        W = torch.sum(W, dim=0) # nd
-        W = torch.div(W, W.sum()) # normalize weights (sum to 1)
+        # W = E(inputv, nd, EPSILON) # batchsize x nd
+        # W = E(inputv, img_context, nd, EPSILON) # batchsize x nd
+        # W = torch.sum(W, dim=0) # nd
+        # W = torch.div(W, W.sum()) # normalize weights (sum to 1)
 
-        # Override W for debugging
-        # W[0] = 0
-        # W[1] = 0
-        # W[2] = 1
-        # print("W override ", W)
-
-        output_weight_list = []
-        # print("W value", W)
-        # print("output_list", output_list)
-        # print("zip", len(list(zip(output_list, W))))
-        for [output_x, W_x] in zip(output_list, W):
-            output_weight_x = torch.mul(output_x, W_x)
-            # print("output_weight_x", output_weight_x)
-            output_weight_list.append(output_weight_x)
-        # print("output_weight_list", output_weight_list)
-        stacked = torch.stack(output_weight_list)
-        E_G_z1 = torch.sum(stacked.mean(dim=1))
         ############################
-        # (3) Update G network: maximize log(D(G(z))*E(X,c)) /////formerly: maximize log(D(G(z)))
-        # (4) Update E network: minimize log(D(G(z))*E(X,c))
+        # (3) Update G network: maximize log(D(G(z))*E(X,c))
         ###########################
         if step % n_dis == 0:
             G.zero_grad()
             labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
-            output_list = [SNDx(fake) for SNDx in SND_list]
-            output_weight_list = []
-            for [output_x, W_x] in zip(output_list, W):
-                output_weight_x = torch.mul(output_x, W_x)
-                output_weight_list.append(output_weight_x)
-            stacked = torch.stack(output_weight_list)
-            E_G_z2 = torch.sum(stacked.mean(dim=1))
 
-            errG_list = []
-            for [output_x, W_x] in zip(output_list, W):
-                errG_x = torch.mul(criterion(output_x, labelv), W_x)
-                errG_list.append(errG_x)
+            loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+            for j, SNDx in enumerate(SND_list):
+                loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            errG = sum(errG_list)
-            errG.backward(retain_graph=True)
+            W = E(inputv, nd, EPSILON) # batchsize x nd
+
+            loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
+            loss_G.backward(retain_graph=True)
 
             optimizerG.step()
 
-        # (4) Update E network: minimize log(D(G(z))*E(X,c))
-        if i % DE_TRAIN_INTERVAL == 0:
-            E.zero_grad()
-            errE = -errG
-            errE.backward(retain_graph=True)
-            optimizerE.step()
-
         if i % 20 == 0:
+            # print(W)
             message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
-            for ix in range(len(errD_list)):
-                errD_x = errD_list[ix]
-                message += ' Loss_D' + str(ix + 1) + ': ' + ('{:.4f}'.format(errD_x.data[0]))
-            message += ' Loss_G: ' + ('{:.4f}'.format(errG.data[0])) + ' = Loss_log(D(G(z))*E(X,c)) E(G(z)): ' + ('{:.4f}'.format(E_G_z1)) + ' / ' + ('{:.4f}'.format(E_G_z2))
+            message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
+            message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
+            message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+            message += ' KL: ' + ('{:.4f}'.format(kl_div))
             print(message)
 
             #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
             #         errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
-                    '%s/real_samples.png' % 'log',
+                    '%s/real_samples.png' % 'v2_log',
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % ('log', epoch),
+                    '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % ('v2_log', epoch),
                     normalize=True)
 
 
     # do checkpointing
-    torch.save(G.state_dict(), 'log/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
+    torch.save(G.state_dict(), 'v2_log/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
     for ix in range(len(SND_list)):
         ip = str(ix + 1)
         SND_x = SND_list[ix]
-        torch.save(SND_x.state_dict(), 'log/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
-    torch.save(E.state_dict(), 'log/celeba_netE_batch_epoch_' + str(epoch) + '.pth')
+        torch.save(SND_x.state_dict(), 'v2_log/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
+    torch.save(E.state_dict(), 'v2_log/celeba_netE_batch_epoch_' + str(epoch) + '.pth')
