@@ -191,8 +191,6 @@ for epoch in range(200):
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
 
-        optimizerE.step()
-
         ############################
         # (2) Run E network: given X and context c, output weights W of length len(D_i)
         # (dist/pdf of action space)
