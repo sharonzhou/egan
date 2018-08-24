@@ -156,6 +156,10 @@ for epoch in range(200):
         W = E(inputv, nd, EPSILON) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
+        loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
+        loss_E.backward()
+        optimizerE.step()
+
         loss_D = nd * (torch.mean(torch.mul(1, loss_Ds))))
         loss_D.backward(retain_graph=True)
 
