@@ -163,7 +163,8 @@ for epoch in range(200):
         loss_D = nd * (torch.mean(torch.mul(1, loss_Ds))))
         loss_D.backward(retain_graph=True)
 
-        E_G_z1 = loss_D.clone()
+        E_G_z1 = loss_E.clone()
+        D_G_z1 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
@@ -186,7 +187,8 @@ for epoch in range(200):
         loss_D = nd * (torch.mean(torch.mul(W, loss_Ds.detach())))
         loss_D.backward(retain_graph=True)
 
-        E_G_z2 = loss_D.clone()
+        E_G_z2 = loss_E.clone()
+        D_G_z2 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
@@ -231,6 +233,7 @@ for epoch in range(200):
             message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
             message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
             message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+            message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
             message += ' KL: ' + ('{:.4f}'.format(kl_div))
             print(message)
 
