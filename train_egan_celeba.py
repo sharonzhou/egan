@@ -169,8 +169,6 @@ for epoch in range(200):
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
         
-        optimizerE.step()
-
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
         noisev = Variable(noise)
