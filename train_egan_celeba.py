@@ -156,7 +156,7 @@ for epoch in range(200):
         W = E(inputv, nd, EPSILON) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
-        loss_D = nd * (torch.mean(torch.mul(W, loss_Ds)) + kl_div)
+        loss_D = nd * (torch.mean(torch.mul(1, loss_Ds))))
         loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_D.clone()
@@ -179,7 +179,7 @@ for epoch in range(200):
         W = E(inputv, nd, EPSILON) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
-        loss_D = nd * (torch.mean(torch.mul(W, loss_Ds)) + kl_div)
+        loss_D = nd * (torch.mean(torch.mul(W, loss_Ds.detach())))
         loss_D.backward(retain_graph=True)
 
         E_G_z2 = loss_D.clone()
