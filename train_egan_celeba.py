@@ -2,8 +2,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torchvision import datasets, transforms
-import torchvision.utils as vutils
+#from torchvision import datasets, transforms
+from vision_egan.torchvision import datasets, transforms
+#import torchvision.utils as vutils
+import vision_egan.torchvision.utils as vutils
 from torch.autograd import Variable
 import torch.utils.data
 import torch.backends.cudnn as cudnn
@@ -18,6 +20,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=128, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
+parser.add_argument('--datadir', type=str, default='/media/Seagate4TB/celeba/subset/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
@@ -38,7 +41,7 @@ if os.path.isfile('celeba.pickle'):
     dataset = pickle.load(open('celeba.pickle', 'rb'))
 else:
     print('loading dataset new')
-    dataset = datasets.ImageFolder(root='/media/Seagate4TB/celeba/',
+    dataset = datasets.ImageFolder(root=opt.datadir,
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -132,7 +135,6 @@ EPSILON = 0.1
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
-        
         real_cpu, img_context = data
 
         batch_size = real_cpu.size(0)
