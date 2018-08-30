@@ -38,7 +38,7 @@ if os.path.isfile('celeba.pickle'):
     dataset = pickle.load(open('celeba.pickle', 'rb'))
 else:
     print('loading dataset new')
-    dataset = datasets.ImageFolder(root='/sailhome/sharonz/celeba/',
+    dataset = datasets.ImageFolder(root='/media/Seagate4TB/celeba/',
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -160,7 +160,7 @@ for epoch in range(200):
         loss_E.backward()
         optimizerE.step()
 
-        loss_D = nd * (torch.mean(torch.mul(1, loss_Ds))))
+        loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
@@ -182,7 +182,7 @@ for epoch in range(200):
         W = E(inputv, nd, EPSILON) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
-        loss_D = nd * (torch.mean(torch.mul(1, loss_Ds.detach())))
+        loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
         E_G_z2 = loss_E.clone()
