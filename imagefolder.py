@@ -32,7 +32,6 @@ def is_image_file(filename):
     """
     return has_file_allowed_extension(filename, IMG_EXTENSIONS)
 
-
 def make_dataset(dir, class_to_idx, extensions):
     images = []
     dir = os.path.expanduser(dir)
@@ -45,7 +44,7 @@ def make_dataset(dir, class_to_idx, extensions):
             for fname in sorted(fnames):
                 if has_file_allowed_extension(fname, extensions):
                     path = os.path.join(root, fname)
-                    item = (path, class_to_idx[target])
+                    item = (path, fname)
                     images.append(item)
 
     return images

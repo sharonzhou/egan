@@ -14,6 +14,7 @@ import torch.backends.cudnn as cudnn
 
 import random
 import argparse
+import numpy as np
 
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
@@ -27,6 +28,14 @@ parser.add_argument('--model', type=str, default='models_egan_celeba', help='tra
 
 opt = parser.parse_args()
 print(opt)
+
+import datetime
+
+logdir = 'logs_' + datetime.date.strftime(datetime.datetime.now(), '%Y%m%d_%H:%M:%S')
+
+import os
+
+os.makedirs(logdir)
 
 import importlib
 
@@ -67,6 +76,67 @@ if opt.cuda:
 
 cudnn.benchmark = True
 
+from csv import DictReader
+import sys
+
+filename_to_context_vector = {}
+context_feature_names = None
+
+for line in DictReader(open(opt.datadir + 'attr.csv')):
+    #print(line)
+    filename = line['File_Name']
+    context_vector = []
+    context_feature_names_current = []
+    for k,v in line.items(): # this is an ordereddict so k is in alphabetical order
+        if k == 'File_Name':
+            continue
+        #print(k + ' is ' + v)
+        if v == '-1':
+            context_vector.append(0)
+        elif v == '1':
+            context_vector.append(1)
+        else:
+            print('invalid value in attr: ' + v)
+            sys.exit()
+        context_feature_names_current.append(k)
+        #context_vector.append(v)
+    if context_feature_names == None:
+        context_feature_names = context_feature_names_current
+    else:
+        if context_feature_names != context_feature_names_current:
+            print('invalid ordering of context feature names')
+            sys.exit()
+    #sys.exit()
+    filename_to_context_vector[filename] = context_vector
+
+print('context feature names are')
+print(context_feature_names)
+context_vector_length = len(context_feature_names)
+print('context vector length is')
+print(context_vector_length)
+
+def generate_fake_context_vector():
+    output = []
+    for x in range(0, context_vector_length):
+        val = 0
+        if random.random() < 0.5:
+            val = 1
+        output.append(val)
+    return output
+
+def generate_fake_context_tensor(batch_size):
+    output = [generate_fake_context_vector() for x in range(batch_size)]
+    return torch.from_numpy(np.array(output)).float().cuda()
+
+print('sample fake context vector is')
+print(generate_fake_context_vector())
+print('sample fake context length is')
+print(len(generate_fake_context_vector()))
+
+def get_context_vector_from_filename(filename):
+    return filename_to_context_vector[filename]
+
+
 def weight_filler(m):
     classname = m.__class__.__name__
     if classname.find('Conv' or 'SNConv') != -1:
@@ -81,7 +151,7 @@ nz = opt.nz
 G = _netG(nz, 3, 64)
 SND_list = [_netD_x(3, 64) for _netD_x in _netD_list]
 nd = len(SND_list)
-E = _netE(3, 64, nd)
+E = _netE(3, 64, nd, context_vector_length)
 print(G)
 print(E)
 G.apply(weight_filler)
@@ -133,11 +203,12 @@ optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 kl_div_fcn = nn.KLDivLoss().cuda()
 l2_fcn = nn.MSELoss().cuda()
 
-EPSILON = 0.1
+
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
         step = epoch * len(dataloader) + i
-        real_cpu, img_context = data
+        real_cpu, filenames = data
+        img_context =  torch.from_numpy(np.array([get_context_vector_from_filename(x) for x in filenames])).float().cuda()
 
         batch_size = real_cpu.size(0)
 
@@ -157,7 +228,7 @@ for epoch in range(200):
             loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
 
         # TODO: add context - see conditional GANs (w/ classifier)
-        W = E(inputv, nd, EPSILON) # batchsize x nd
+        W = E(inputv, nd, img_context) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
         loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
@@ -183,7 +254,9 @@ for epoch in range(200):
         for j, SNDx in enumerate(SND_list):
             loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
 
-        W = E(inputv, nd, EPSILON) # batchsize x nd
+        #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+        W = E(inputv, nd, fake_context_vector) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
         loss_D = nd * (torch.mean(loss_Ds))
@@ -220,7 +293,7 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(inputv, nd, EPSILON) # batchsize x nd
+            W = E(inputv, nd, img_context) # batchsize x nd
 
             loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             loss_G.backward(retain_graph=True)
@@ -241,18 +314,18 @@ for epoch in range(200):
             #         errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
-                    '%s/real_samples.png' % 'v2_log',
+                    '%s/real_samples.png' % logdir,
                     normalize=True)
             fake = G(fixed_noise)
             vutils.save_image(fake.data,
-                    '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % ('v2_log', epoch),
+                    '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % (logdir, epoch),
                     normalize=True)
 
 
     # do checkpointing
-    torch.save(G.state_dict(), 'v2_log/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
+    torch.save(G.state_dict(), logdir + '/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
     for ix in range(len(SND_list)):
         ip = str(ix + 1)
         SND_x = SND_list[ix]
-        torch.save(SND_x.state_dict(), 'v2_log/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
-    torch.save(E.state_dict(), 'v2_log/celeba_netE_batch_epoch_' + str(epoch) + '.pth')
+        torch.save(SND_x.state_dict(), logdir + '/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
+    torch.save(E.state_dict(), logdir + '/celeba_netE_batch_epoch_' + str(epoch) + '.pth')

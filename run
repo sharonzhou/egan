@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rm -r **/*.pyc
+rm celeba.pickle
+python train_egan_celeba.py --cuda

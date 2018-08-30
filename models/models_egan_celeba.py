@@ -37,7 +37,7 @@ class _netG(nn.Module):
 
 # Actor
 class _netE(nn.Module):
-    def __init__(self, nc, nef, ndiscriminators):
+    def __init__(self, nc, nef, ndiscriminators, context_vector_size):
         super(_netE, self).__init__()
 
         self.main = nn.Sequential(
@@ -58,26 +58,28 @@ class _netE(nn.Module):
             nn.LeakyReLU(0.1, inplace=True),
             SNConv2d(nef * 4, ndiscriminators, 7, 4, 1, bias=False),
             nn.LeakyReLU(0.1, inplace=True),
-            nn.Softmax() # remove once context has been added
+            #nn.Softmax() # remove once context has been added
         )
 
         self.context = nn.Sequential(
-            nn.Linear(nc * nef * nef + ndiscriminators, nef * 8),
+            #nn.Linear(nc * nef * nef + ndiscriminators, nef * 8),
+            nn.Linear(context_vector_size + ndiscriminators, nef * 8),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(nef * 8, ndiscriminators),
             nn.Softmax()
         )
 
     # def forward(self, input, context, ndiscriminators, eps):
-    def forward(self, input, ndiscriminators, eps):
+    def forward(self, input, ndiscriminators, context_vector):
         # if random.random() < eps:
         #     output = torch.rand((64, ndiscriminators)).cuda()
         # else:
         #     output = self.image(input) 
-        output = self.image(input) 
-            # next_input = torch.cat((output.view(output.size(0), -1), context.view(context.size(0), -1)), -1)
-            # output = self.context(next_input)
-        return output.squeeze(-1).squeeze(-1)
+        output = self.image(input).float().cuda()
+        next_input = torch.cat((output.view(output.size(0), -1), context_vector.view(context_vector.size(0), -1)), -1)
+        output = self.context(next_input)
+        #output = output.squeeze(-1).squeeze(-1)
+        return output
         # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
