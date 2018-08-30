@@ -1,5 +1,10 @@
 #!/bin/bash
 
+source egan/bin/activate
 rm -r **/*.pyc
 rm celeba.pickle
-python train_egan_celeba.py --cuda
+rm latestlog
+filename=runlog_$(date +"%Y%m%d-%H:%M:%S")
+touch "$filename"
+ln -s "$filename" latestlog
+python -u train_egan_celeba.py --cuda 2>&1 | tee "$filename"
