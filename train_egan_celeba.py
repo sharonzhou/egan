@@ -23,7 +23,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=128, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
-parser.add_argument('--datadir', type=str, default='/media/Seagate4TB/celeba/subset/', help='data directory')
+parser.add_argument('--datadir', type=str, default='/media/Seagate4TB/celeba/full/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
