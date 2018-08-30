@@ -3,9 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 #from torchvision import datasets, transforms
-from vision_egan.torchvision import datasets, transforms
-#import torchvision.utils as vutils
-import vision_egan.torchvision.utils as vutils
+from torchvision import transforms
+from imagefolder import ImageFolder
+#from vision_egan.torchvision import datasets, transforms
+import torchvision.utils as vutils
+#import vision_egan.torchvision.utils as vutils
 from torch.autograd import Variable
 import torch.utils.data
 import torch.backends.cudnn as cudnn
@@ -41,7 +43,7 @@ if os.path.isfile('celeba.pickle'):
     dataset = pickle.load(open('celeba.pickle', 'rb'))
 else:
     print('loading dataset new')
-    dataset = datasets.ImageFolder(root=opt.datadir,
+    dataset = ImageFolder(root=opt.datadir,
                             transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
