@@ -21,7 +21,7 @@ parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(3), help='gpu ids: e.g. 0,1,2, 0,2.')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
-parser.add_argument('--nz', type=int, default=128, help='dimension of lantent noise')
+parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
 parser.add_argument('--datadir', type=str, default='/media/Seagate4TB/celeba/full/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
@@ -80,6 +80,7 @@ from csv import DictReader
 import sys
 
 filename_to_context_vector = {}
+list_of_context_vectors = []
 context_feature_names = None
 
 for line in DictReader(open(opt.datadir + 'attr.csv')):
@@ -108,6 +109,7 @@ for line in DictReader(open(opt.datadir + 'attr.csv')):
             sys.exit()
     #sys.exit()
     filename_to_context_vector[filename] = context_vector
+    list_of_context_vectors.append(context_vector)
 
 print('context feature names are')
 print(context_feature_names)
@@ -115,6 +117,7 @@ context_vector_length = len(context_feature_names)
 print('context vector length is')
 print(context_vector_length)
 
+'''
 def generate_fake_context_vector():
     output = []
     for x in range(0, context_vector_length):
@@ -123,6 +126,10 @@ def generate_fake_context_vector():
             val = 1
         output.append(val)
     return output
+'''
+
+def generate_fake_context_vector():
+    return random.choice(list_of_context_vectors)
 
 def generate_fake_context_tensor(batch_size):
     output = [generate_fake_context_vector() for x in range(batch_size)]
@@ -148,7 +155,7 @@ def weight_filler(m):
 n_dis = opt.n_dis
 nz = opt.nz
 
-G = _netG(nz, 3, 64)
+G = _netG(nz, 3, 64, context_vector_length)
 SND_list = [_netD_x(3, 64) for _netD_x in _netD_list]
 nd = len(SND_list)
 E = _netE(3, 64, nd, context_vector_length)
@@ -243,11 +250,13 @@ for epoch in range(200):
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
-        
+
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
         noisev = Variable(noise)
-        fake = G(noisev)
+        fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
         labelv = Variable(label.fill_(fake_label))
         
         loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
@@ -255,7 +264,7 @@ for epoch in range(200):
             loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
 
         #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
-        fake_context_vector = generate_fake_context_tensor(batch_size)
+
         W = E(inputv, nd, fake_context_vector) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
@@ -293,7 +302,7 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(inputv, nd, img_context) # batchsize x nd
+            W = E(inputv, nd, fake_context_vector) # batchsize x nd
 
             loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             loss_G.backward(retain_graph=True)
@@ -316,7 +325,7 @@ for epoch in range(200):
             vutils.save_image(real_cpu,
                     '%s/real_samples.png' % logdir,
                     normalize=True)
-            fake = G(fixed_noise)
+            fake = G(fixed_noise, fake_context_vector) # fake context vector should be passed here
             vutils.save_image(fake.data,
                     '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % (logdir, epoch),
                     normalize=True)
