@@ -265,7 +265,7 @@ for epoch in range(200):
 
         #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
 
-        W = E(inputv, nd, fake_context_vector) # batchsize x nd
+        W = E(fake, nd, fake_context_vector) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W))
         loss_D = nd * (torch.mean(loss_Ds))
@@ -302,7 +302,7 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(fake, nd, fake_context_vector) # batchsize x nd
+            W = E(inputv, nd, fake_context_vector) # batchsize x nd
 
             loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             loss_G.backward(retain_graph=True)
