@@ -92,7 +92,7 @@ class _netE(nn.Module):
         # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD1, self).__init__()
 
         self.main = nn.Sequential(
@@ -106,13 +106,41 @@ class _netD1(nn.Module):
             SNConv2d(ndf, 1, 3, 1, 0, bias=False),
             nn.Sigmoid()
         )
+        '''
+        self.lastconv = SNConv2d(ndf, 1, 3, 1, 0, bias=False)
+        self.ndf = ndf
+        self.fc_dis = nn.Linear(64*3*3, 1)
+        self.fc_aux = nn.Linear(64*3*3, num_classes)
+        self.softmax = nn.Softmax()
+        self.sigmoid = nn.Sigmoid()
+        '''
+
     def forward(self, input):
         output = self.main(input)
         output = output.view(-1, 1).squeeze(1)
         return output
+        #ndf = self.ndf
+        #lastlayer = self.main(input)
+        #isfake = self.sigmoid(self.lastconv(lastlayer))
+        #return isfake
+        '''
+        lastlayer = self.main(input)
+        #print('lastlayer size')
+        #print(lastlayer.size())
+        flattened = lastlayer.view(-1, 64*3*3)
+        #print('flattended size')
+        #print(flattened.size())
+        isfake = self.sigmoid(self.fc_dis(flattened))
+        #print('isfake size')
+        #print(isfake.size())
+        classes = self.softmax(self.fc_aux(flattened))
+        #print('classes size')
+        #print(classes.size())
+        return isfake
+        '''
 
 class _netD2(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD2, self).__init__()
 
         self.main = nn.Sequential(
@@ -133,7 +161,7 @@ class _netD2(nn.Module):
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -162,7 +190,7 @@ class _netD3(nn.Module):
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -190,7 +218,7 @@ class _netD3(nn.Module):
         return output
 
 class _netD4(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD4, self).__init__()
 
         self.main = nn.Sequential(
@@ -219,7 +247,7 @@ class _netD4(nn.Module):
 
 class _netD5(nn.Module):
     # AAE
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD5, self).__init__()
 
         self.main = nn.Sequential(
@@ -238,7 +266,7 @@ class _netD5(nn.Module):
 
 class _netD6(nn.Module):
     # BEGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD6, self).__init__()
 
         # Upsampling
@@ -276,7 +304,7 @@ class _netD6(nn.Module):
 
 class _netD7(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD7, self).__init__()
 
         self.main = nn.Sequential(
@@ -295,7 +323,7 @@ class _netD7(nn.Module):
 
 class _netD8(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD8, self).__init__()
 
         self.main = nn.Sequential(
@@ -326,7 +354,7 @@ def cyclegan_discriminator_block(in_filters, out_filters, normalize=True):
 
 class _netD9(nn.Module):
     # CycleGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD9, self).__init__()
 
         self.main = nn.Sequential(
@@ -354,7 +382,7 @@ def dcgan_discriminator_block(in_filters, out_filters, bn=True):
 
 class _netD10(nn.Module):
     # DCGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, num_classes):
         super(_netD10, self).__init__()
 
         self.main = nn.Sequential(

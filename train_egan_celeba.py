@@ -108,6 +108,7 @@ for line in DictReader(open(opt.datadir + 'attr.csv')):
             print('invalid ordering of context feature names')
             sys.exit()
     #sys.exit()
+    #context_vector = torch.from_numpy(np.array(context_vector)).float().cuda()
     filename_to_context_vector[filename] = context_vector
     list_of_context_vectors.append(context_vector)
 
@@ -155,10 +156,10 @@ def weight_filler(m):
 n_dis = opt.n_dis
 nz = opt.nz
 
-G = _netG(nz, 3, 64, context_vector_length)
-SND_list = [_netD_x(3, 64) for _netD_x in _netD_list]
+G = _netG(nz, 3, opt.batchsize, context_vector_length)
+SND_list = [_netD_x(3, opt.batchsize, context_vector_length) for _netD_x in _netD_list]
 nd = len(SND_list)
-E = _netE(3, 64, nd, context_vector_length)
+E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
 print(E)
 G.apply(weight_filler)
@@ -205,7 +206,7 @@ if opt.cuda:
 optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND_list = []
 # TODO: hyperparam tuning here
-lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001][:nd]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
@@ -239,17 +240,17 @@ for epoch in range(200):
             loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
 
         # TODO: add context - see conditional GANs (w/ classifier)
-        #W = E(inputv, nd, img_context) # batchsize x nd
+        W = E(inputv, nd, img_context) # batchsize x nd
 
-        #kl_div = - alpha * torch.mean(torch.log(W))
-        #loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
-        #loss_E.backward()
-        #optimizerE.step()
+        kl_div = - alpha * torch.mean(torch.log(W))
+        loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
+        loss_E.backward()
+        optimizerE.step()
 
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
-        #E_G_z1 = loss_E.clone()
+        E_G_z1 = loss_E.clone()
         D_G_z1 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
@@ -271,14 +272,14 @@ for epoch in range(200):
             #loss_Ds[:,j] = w_loss_func_D(realD, fakeD)
 
         #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
+        fake_context_vector = generate_fake_context_tensor(batch_size)
 
-        #W = E(fake, nd, fake_context_vector) # batchsize x nd
+        W = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        #kl_div = - alpha * torch.mean(torch.log(W))
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
-        #E_G_z2 = loss_E.clone()
+        E_G_z2 = loss_E.clone()
         D_G_z2 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
@@ -311,9 +312,10 @@ for epoch in range(200):
 
             #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
-            #Wmeans = torch.mean(W, dim=0)
-            #bestD = torch.argmax(Wmeans)
-            bestD = 0
+            Wmeans = torch.mean(W, dim=0)
+            bestD = torch.argmax(Wmeans)
+            print('bestD is: ' + str(bestD))
+            #bestD = 0
             loss_G = torch.mean(loss_Ds[bestD])
             #loss_G = w_loss_func_G()
             loss_G.backward(retain_graph=True)
@@ -325,7 +327,7 @@ for epoch in range(200):
             message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
             message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
             message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
-            #message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+            message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
             message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
             #message += ' KL: ' + ('{:.4f}'.format(kl_div))
             print(message)
@@ -343,9 +345,9 @@ for epoch in range(200):
 
 
     # do checkpointing
-    torch.save(G.state_dict(), logdir + '/celeba_netG_batch_epoch_' + str(epoch) +'.pth')
+    torch.save(G.state_dict(), logdir + '/celeba_netG_batch.pth')
     for ix in range(len(SND_list)):
         ip = str(ix + 1)
         SND_x = SND_list[ix]
-        torch.save(SND_x.state_dict(), logdir + '/celeba_netD_batch' + ip + '_epoch_' + str(epoch) + '.pth')
-    torch.save(E.state_dict(), logdir + '/celeba_netE_batch_epoch_' + str(epoch) + '.pth')
+        torch.save(SND_x.state_dict(), logdir + '/celeba_netD_batch' + ip + '.pth')
+    torch.save(E.state_dict(), logdir + '/celeba_netE_batch.pth')
