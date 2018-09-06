@@ -370,4 +370,5 @@ class _netD10(nn.Module):
         output = output.view(-1, 1).squeeze(1)
         return output
 
-_netD_list = [_netD1, _netD2, _netD3, _netD4, _netD5, _netD6, _netD7, _netD8, _netD9, _netD10]
+#_netD_list = [_netD1, _netD2, _netD3, _netD4, _netD5, _netD6, _netD7, _netD8, _netD9, _netD10]
+_netD_list = [_netD1]

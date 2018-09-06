@@ -23,7 +23,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
-parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/full/', help='data directory')
+parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/subset/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
@@ -179,6 +179,11 @@ fixed_noise = Variable(fixed_noise)
 # D wants to max this distance: D(image) - D(G(z))
 # generator G wants to maximize D(G(z))
 criterion = nn.BCELoss() 
+def w_loss_func_G(D_fake):
+  return -torch.mean(D_fake)
+
+def w_loss_func_D(D_real, D_fake):
+  return -(torch.mean(D_real) - torch.mean(D_fake))
 
 dtype = torch.FloatTensor
 
@@ -262,6 +267,9 @@ for epoch in range(200):
         loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
+            #fakeD = SNDx(fake.detach())
+            #realD = SNDx(inputv)
+            #loss_Ds[:,j] = w_loss_func_D(realD, fakeD)
 
         #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
 
@@ -296,15 +304,21 @@ for epoch in range(200):
         ###########################
         if step % n_dis == 0:
             G.zero_grad()
-            labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
+            labelv = Variable(label.fill_(fake_label))  # fake labels are real for generator cost
 
+            '''
             loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(inputv, nd, fake_context_vector) # batchsize x nd
-
+            W = E(fake, nd, fake_context_vector) # batchsize x nd
             loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
+            '''
+            #bestD = torch.argmax(W)
+            Wmeans = torch.mean(W, dim=0)
+            bestD = torch.argmax(Wmeans)
+            loss_G = torch.mean(loss_Ds[bestD])
+            #loss_G = w_loss_func_G()
             loss_G.backward(retain_graph=True)
 
             optimizerG.step()
