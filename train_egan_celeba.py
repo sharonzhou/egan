@@ -23,7 +23,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
-parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/subset/', help='data directory')
+parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/full/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
@@ -206,7 +206,6 @@ optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND_list = []
 # TODO: hyperparam tuning here
 lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
-lr_list = [0 for _ in range(10)]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
