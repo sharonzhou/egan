@@ -240,17 +240,17 @@ for epoch in range(200):
             loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
 
         # TODO: add context - see conditional GANs (w/ classifier)
-        W = E(inputv, nd, img_context) # batchsize x nd
+        #W = E(inputv, nd, img_context) # batchsize x nd
 
-        kl_div = - alpha * torch.mean(torch.log(W))
-        loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
-        loss_E.backward()
-        optimizerE.step()
+        #kl_div = - alpha * torch.mean(torch.log(W))
+        #loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
+        #loss_E.backward()
+        #optimizerE.step()
 
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
-        E_G_z1 = loss_E.clone()
+        #E_G_z1 = loss_E.clone()
         D_G_z1 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
@@ -273,13 +273,13 @@ for epoch in range(200):
 
         #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
 
-        W = E(fake, nd, fake_context_vector) # batchsize x nd
+        #W = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        kl_div = - alpha * torch.mean(torch.log(W))
+        #kl_div = - alpha * torch.mean(torch.log(W))
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
-        E_G_z2 = loss_E.clone()
+        #E_G_z2 = loss_E.clone()
         D_G_z2 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
@@ -310,10 +310,11 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(fake, nd, fake_context_vector) # batchsize x nd
+            #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
-            Wmeans = torch.mean(W, dim=0)
-            bestD = torch.argmax(Wmeans)
+            #Wmeans = torch.mean(W, dim=0)
+            #bestD = torch.argmax(Wmeans)
+            bestD = 0
             loss_G = torch.mean(loss_Ds[bestD])
             #loss_G = w_loss_func_G()
             loss_G.backward(retain_graph=True)
@@ -325,9 +326,9 @@ for epoch in range(200):
             message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
             message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
             message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
-            message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+            #message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
             message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
-            message += ' KL: ' + ('{:.4f}'.format(kl_div))
+            #message += ' KL: ' + ('{:.4f}'.format(kl_div))
             print(message)
 
             #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
