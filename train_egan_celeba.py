@@ -23,7 +23,7 @@ parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
-parser.add_argument('--datadir', type=str, default='/media/Seagate4TB/celeba/full/', help='data directory')
+parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/full/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
 
 opt = parser.parse_args()
@@ -302,7 +302,7 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
-            W = E(inputv, nd, fake_context_vector) # batchsize x nd
+            W = E(fake, nd, fake_context_vector) # batchsize x nd
 
             loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             loss_G.backward(retain_graph=True)
