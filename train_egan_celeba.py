@@ -304,17 +304,14 @@ for epoch in range(200):
         ###########################
         if step % n_dis == 0:
             G.zero_grad()
-            labelv = Variable(label.fill_(fake_label))  # fake labels are real for generator cost
+            labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
 
-            '''
             loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
 
             W = E(fake, nd, fake_context_vector) # batchsize x nd
-            loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
-            '''
-            #bestD = torch.argmax(W)
+            #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             Wmeans = torch.mean(W, dim=0)
             bestD = torch.argmax(Wmeans)
             loss_G = torch.mean(loss_Ds[bestD])
