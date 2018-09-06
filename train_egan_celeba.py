@@ -193,10 +193,13 @@ alpha = 0.1
 uniform = torch.ones((opt.batchsize, nd)).type(dtype) / nd
 
 if opt.cuda:
-    G.cuda()
-    for SNDx in SND_list:
-        SNDx.cuda()
-    E.cuda()
+    G = G.cuda()
+    #G = nn.DataParallel(G).cuda()
+    for i in range(len(SND_list)):
+        #SND_list[i] = nn.DataParallel(SND_list[i]).cuda()
+        SND_list[i] = SND_list[i].cuda()
+    #E = nn.DataParallel(E).cuda()
+    E = E.cuda()
     criterion.cuda()
     input, label = input.cuda(), label.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
