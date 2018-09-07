@@ -5,6 +5,56 @@ import torch.nn.functional as F
 from src.snlayers.snconv2d import SNConv2d
 import random
 
+class _netC(nn.Module):
+    def __init__(self, nc, ndf, num_classes):
+        super(_netC, self).__init__()
+
+        self.main = nn.Sequential(
+            # input is (nc) x 64 x 64
+            SNConv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf) x 32 x 32
+            SNConv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*2) x 16 x 16
+            SNConv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            SNConv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 16),
+            nn.LeakyReLU(0.2, inplace=True),
+            SNConv2d(ndf * 16, ndf * 64, 4, 1, 0, bias=False),
+            # state size. (ndf*16) x 4 x 4
+            #SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
+            #nn.Sigmoid()
+        )
+        self.linear = nn.Linear(1024*4, num_classes)
+        self.softmax = nn.Softmax()
+        self.sigmoid = nn.Sigmoid()
+    def forward(self, input):
+        #output = self.main(input)
+        #output = output.view(-1, 1).squeeze(1)
+        #return output
+        #print('input shape')
+        #print(input.shape)
+        print('befor running main')
+        output = self.main(input)
+        print('output size is')
+        print(output.size())
+        flattened = output.view(-1, 1024*4)
+        print('flattened output is')
+        print(flattened.size())
+        output = self.linear(flattened)
+        print('after linear layer size is')
+        print(output.size())
+        print(output)
+        output = self.sigmoid(output)
+        print('after sigmoid layer size is')
+        print(output.size())
+        print(output)
+        return output
+
 class _netG(nn.Module):
     def __init__(self, nz, nc, ngf, context_vector_length):
         super(_netG, self).__init__()
