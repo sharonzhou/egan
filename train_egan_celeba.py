@@ -256,25 +256,23 @@ for epoch in range(200):
 
         classes_predicted = C(fake)
 
-        loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
-        loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
+        loss_Ds_combined = torch.zeros((batch_size, nd)).type(dtype)
+        #loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
 
         for j, SNDx in enumerate(SND_list):
           if losses_list[j] == 'BCE':
-            loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
-            loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
+            loss_Ds_combined[:,j] = criterion(SNDx(inputv), labelv_real) + criterion(SNDx(fake.detach()), labelv_fake)
           if losses_list[j] == 'W':
-            loss_Ds_real[:,j] = w_loss_func_D(SNDx(inputv), SNDx(fake))
-            loss_Ds_fake[:,j] = w_loss_func_D(SNDx(inputv), SNDx(fake))
+            loss_Ds_combined[:,j] = w_loss_func_D(SNDx(inputv), SNDx(fake.detach()))
 
         W_real = E(inputv, nd, img_context) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W_real))
-        loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds_real.detach() ) ) + kl_div)
+        loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds_combined.detach() ) ) + kl_div)
         loss_E.backward()
         optimizerE.step()
 
-        loss_D = nd * (torch.mean(loss_Ds_real))
+        loss_D = nd * (torch.mean(loss_Ds_combined))
         loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
@@ -285,11 +283,7 @@ for epoch in range(200):
         
         W_fake = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        loss_D = nd * (torch.mean(loss_Ds_fake))
-        loss_D.backward(retain_graph=True)
-
-        E_G_z2 = loss_E.clone()
-        D_G_z2 = loss_D.clone()
+        
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
@@ -315,6 +309,16 @@ for epoch in range(200):
             loss_G.backward(retain_graph=True)
 
             optimizerG.step()
+
+            kl_div = - alpha * torch.mean(torch.log(W_fake))
+            loss_E = nd * (torch.mean(torch.mul(W_fake, loss_Ds.detach() ) ) + kl_div)
+            loss_E.backward()
+            optimizerE.step()
+
+            loss_D = nd * (torch.mean(loss_Ds))
+
+            E_G_z2 = loss_E.clone()
+            D_G_z2 = loss_D.clone()
 
         if i % 20 == 0:
             # print(W)
