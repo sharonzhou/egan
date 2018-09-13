@@ -38,6 +38,9 @@ import os
 
 os.makedirs(logdir)
 
+from copy_info_to_logdir import copy_info_to_logdir
+copy_info_to_logdir(logdir)
+
 import importlib
 
 models_egan = importlib.import_module("models." + opt.model)
@@ -75,7 +78,7 @@ torch.manual_seed(opt.manualSeed)
 if opt.cuda:
     torch.cuda.manual_seed_all(opt.manualSeed)
     #gpu_id = random.choice(opt.gpu_ids)
-    gpu_id = opt.gpu_ids[opt.gpunum]
+    gpu_id = opt.gpu_ids[int(opt.gpunum)]
     torch.cuda.set_device(gpu_id)
 
 cudnn.benchmark = True
@@ -336,6 +339,7 @@ for epoch in range(200):
             message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
             message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
             #message += ' KL: ' + ('{:.4f}'.format(kl_div))
+            message += ' ' + logdir
             print(message)
 
             #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
