@@ -1,1 +1,9 @@
 /log
+/logs*
+/runlog_*
+.DS_Store
+celeba.pickle
+*.pyc
+latestlog
+sample.out
+egan

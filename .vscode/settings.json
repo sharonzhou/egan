@@ -1,0 +1,4 @@
+{
+    "python.pythonPath": "${workspaceFolder}/egan/bin/python",
+    "git.ignoreLimitWarning": true
+}
