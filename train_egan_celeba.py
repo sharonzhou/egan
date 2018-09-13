@@ -15,12 +15,15 @@ import torch.backends.cudnn as cudnn
 import random
 import argparse
 import numpy as np
+from os import path
+import json
 
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,2.')
 parser.add_argument('--gpunum', default=0, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
+parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
@@ -38,8 +41,7 @@ import os
 
 os.makedirs(logdir)
 
-from copy_info_to_logdir import copy_info_to_logdir
-copy_info_to_logdir(logdir)
+
 
 import importlib
 
@@ -48,6 +50,29 @@ _netG = models_egan._netG
 _netC = models_egan._netC
 _netE = models_egan._netE
 _netD_list = models_egan._netD_list
+
+def generate_learning_rate():
+  base = random.randrange(3, 6)
+  return 10 ** (-base)
+
+nd = int(opt.numdiscriminators)
+#nd = len(_netD_list)
+lr_list = [generate_learning_rate() for x in range(nd)]
+# lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+
+
+hyperparameters = {
+  'lr_list': lr_list,
+  'nd': nd,
+}
+
+_netD_list = _netD_list[:nd]
+
+from copy_info_to_logdir import copy_info_to_logdir, copy_hyperparameters_to_logdir
+copy_info_to_logdir(logdir)
+copy_hyperparameters_to_logdir(logdir, hyperparameters)
+
+loss_outfile = open(path.join(logdir, 'losses.jsonl'), 'wt')
 
 import pickle
 import os.path
@@ -166,7 +191,7 @@ nz = opt.nz
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
 C = _netC(3, opt.batchsize, context_vector_length)
 SND_list = [_netD_x(3, opt.batchsize) for _netD_x in _netD_list]
-nd = len(SND_list)
+#nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
 print(E)
@@ -266,6 +291,8 @@ for epoch in range(200):
         E_G_z1 = loss_E.clone()
         D_G_z1 = loss_D.clone()
 
+        loss_C_real_clone = loss_C_real.clone()
+
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
 
@@ -281,6 +308,8 @@ for epoch in range(200):
         loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
         loss_C_fake.backward(retain_graph=True)
 
+        loss_C_fake_clone = loss_C_fake.clone()
+
         loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
@@ -292,6 +321,10 @@ for epoch in range(200):
         fake_context_vector = generate_fake_context_tensor(batch_size)
 
         W = E(fake, nd, fake_context_vector) # batchsize x nd
+
+        # just for printing and logging
+        Wmeans_real = torch.mean(W, dim=0)
+        bestD_real = torch.argmax(Wmeans_real)
 
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
@@ -329,26 +362,44 @@ for epoch in range(200):
 
             #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
-            Wmeans = torch.mean(W, dim=0)
-            bestD = torch.argmax(Wmeans)
-            print('bestD is: ' + str(bestD))
+            Wmeans_fake = torch.mean(W, dim=0)
+            bestD_fake = torch.argmax(Wmeans_fake)
+            print('bestD_fake is: ' + str(bestD_fake))
             #bestD = 0
-            loss_G = torch.mean(loss_Ds[bestD])
+            loss_G = torch.mean(loss_Ds[bestD_fake])
             #loss_G = w_loss_func_G()
             loss_G.backward(retain_graph=True)
 
             optimizerG.step()
-
-        if i % 20 == 0:
-            # print(W)
-            message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
-            message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
-            message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
-            message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
-            message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
-            #message += ' KL: ' + ('{:.4f}'.format(kl_div))
-            message += ' ' + logdir
-            print(message)
+            if step % 20 == 0:
+              # print(W)
+              message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
+              message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
+              message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
+              message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+              message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
+              #message += ' KL: ' + ('{:.4f}'.format(kl_div))
+              message += ' ' + logdir
+              print(message)
+              if step % 200 == 0:
+                data_to_write = {
+                  'epoch': epoch,
+                  'loss_D': str(torch.mean(loss_D)),
+                  'loss_C_real': str(loss_C_real_clone),
+                  'loss_C_fake': str(loss_C_fake_clone),
+                  'E_G_z1': str(E_G_z1.data.cpu().numpy()),
+                  'E_G_z2': str(E_G_z2.data.cpu().numpy()),
+                  'D_G_z1': str(D_G_z1.data.cpu().numpy()),
+                  'D_G_z2': str(D_G_z2.data.cpu().numpy()),
+                }
+                if epoch == 199:
+                  data_to_write['bestD_fake'] = str(bestD_fake.data.cpu().numpy())
+                  data_to_write['fake_context_vector'] = fake_context_vector.detach().cpu().numpy().tolist()
+                  data_to_write['bestD_real'] = str(bestD_real.data.cpu().numpy())
+                  data_to_write['real_context_vector'] = img_context.detach().cpu().numpy().tolist()
+                loss_outfile.write(json.dumps(data_to_write))
+                loss_outfile.write('\n')
+                loss_outfile.flush()
 
             #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
             #         errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
@@ -369,3 +420,11 @@ for epoch in range(200):
         SND_x = SND_list[ix]
         torch.save(SND_x.state_dict(), logdir + '/celeba_netD_batch' + ip + '.pth')
     torch.save(E.state_dict(), logdir + '/celeba_netE_batch.pth')
+
+
+loss_outfile.close()
+finished_file = open(path.join(logdir, 'finished.txt'), 'wt')
+finished_file.write('finished')
+finished_file.close()
+
+print('finished')
