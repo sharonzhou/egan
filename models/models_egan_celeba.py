@@ -5,57 +5,6 @@ import torch.nn.functional as F
 from src.snlayers.snconv2d import SNConv2d
 import random
 
-class _netC(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
-        super(_netC, self).__init__()
-
-        self.main = nn.Sequential(
-            # input is (nc) x 64 x 64
-            SNConv2d(nc, ndf, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf) x 32 x 32
-            SNConv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            # state size. (ndf*2) x 16 x 16
-            SNConv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            SNConv2d(ndf * 4, ndf * 16, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 16),
-            nn.LeakyReLU(0.2, inplace=True),
-            SNConv2d(ndf * 16, ndf * 64, 4, 1, 0, bias=False),
-            # state size. (ndf*16) x 4 x 4
-            #SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
-            #nn.Sigmoid()
-        )
-        self.linear = nn.Linear(1024*4, num_classes)
-        self.softmax = nn.Softmax()
-        self.sigmoid = nn.Sigmoid()
-    def forward(self, input):
-        #output = self.main(input)
-        #output = output.view(-1, 1).squeeze(1)
-        #return output
-        #print('input shape')
-        #print(input.shape)
-        #print('befor running main')
-        output = self.main(input)
-        #print('output size is')
-        #print(output.size())
-        flattened = output.view(-1, 1024*4)
-        #print('flattened output is')
-        #print(flattened.size())
-        output = self.linear(flattened)
-        #print('after linear layer size is')
-        #print(output.size())
-        #print(output)
-        #isreal = self.sigmoid(output)
-        #print('after sigmoid layer size is')
-        #print(output.size())
-        #print(output)
-        classes = self.softmax(output)
-        return classes
-
 class _netG(nn.Module):
     def __init__(self, nz, nc, ngf, context_vector_length):
         super(_netG, self).__init__()
@@ -143,7 +92,7 @@ class _netE(nn.Module):
         # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD1, self).__init__()
 
         self.main = nn.Sequential(
@@ -157,41 +106,13 @@ class _netD1(nn.Module):
             SNConv2d(ndf, 1, 3, 1, 0, bias=False),
             nn.Sigmoid()
         )
-        '''
-        self.lastconv = SNConv2d(ndf, 1, 3, 1, 0, bias=False)
-        self.ndf = ndf
-        self.fc_dis = nn.Linear(64*3*3, 1)
-        self.fc_aux = nn.Linear(64*3*3, num_classes)
-        self.softmax = nn.Softmax()
-        self.sigmoid = nn.Sigmoid()
-        '''
-
     def forward(self, input):
         output = self.main(input)
         output = output.view(-1, 1).squeeze(1)
         return output
-        #ndf = self.ndf
-        #lastlayer = self.main(input)
-        #isfake = self.sigmoid(self.lastconv(lastlayer))
-        #return isfake
-        '''
-        lastlayer = self.main(input)
-        #print('lastlayer size')
-        #print(lastlayer.size())
-        flattened = lastlayer.view(-1, 64*3*3)
-        #print('flattended size')
-        #print(flattened.size())
-        isfake = self.sigmoid(self.fc_dis(flattened))
-        #print('isfake size')
-        #print(isfake.size())
-        classes = self.softmax(self.fc_aux(flattened))
-        #print('classes size')
-        #print(classes.size())
-        return isfake
-        '''
 
 class _netD2(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD2, self).__init__()
 
         self.main = nn.Sequential(
@@ -212,7 +133,7 @@ class _netD2(nn.Module):
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -241,7 +162,7 @@ class _netD3(nn.Module):
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -269,7 +190,7 @@ class _netD3(nn.Module):
         return output
 
 class _netD4(nn.Module):
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD4, self).__init__()
 
         self.main = nn.Sequential(
@@ -298,7 +219,7 @@ class _netD4(nn.Module):
 
 class _netD5(nn.Module):
     # AAE
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD5, self).__init__()
 
         self.main = nn.Sequential(
@@ -317,7 +238,7 @@ class _netD5(nn.Module):
 
 class _netD6(nn.Module):
     # BEGAN
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD6, self).__init__()
 
         # Upsampling
@@ -355,7 +276,7 @@ class _netD6(nn.Module):
 
 class _netD7(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD7, self).__init__()
 
         self.main = nn.Sequential(
@@ -374,7 +295,7 @@ class _netD7(nn.Module):
 
 class _netD8(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD8, self).__init__()
 
         self.main = nn.Sequential(
@@ -405,7 +326,7 @@ def cyclegan_discriminator_block(in_filters, out_filters, normalize=True):
 
 class _netD9(nn.Module):
     # CycleGAN
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD9, self).__init__()
 
         self.main = nn.Sequential(
@@ -433,7 +354,7 @@ def dcgan_discriminator_block(in_filters, out_filters, bn=True):
 
 class _netD10(nn.Module):
     # DCGAN
-    def __init__(self, nc, ndf, num_classes):
+    def __init__(self, nc, ndf):
         super(_netD10, self).__init__()
 
         self.main = nn.Sequential(
