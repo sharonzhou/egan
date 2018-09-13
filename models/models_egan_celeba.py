@@ -49,11 +49,12 @@ class _netC(nn.Module):
         #print('after linear layer size is')
         #print(output.size())
         #print(output)
-        output = self.sigmoid(output)
+        #isreal = self.sigmoid(output)
         #print('after sigmoid layer size is')
         #print(output.size())
         #print(output)
-        return output
+        classes = self.softmax(output)
+        return classes
 
 class _netG(nn.Module):
     def __init__(self, nz, nc, ngf, context_vector_length):

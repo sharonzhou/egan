@@ -244,6 +244,10 @@ for epoch in range(200):
         # train with real
         for SNDx in SND_list:
             SNDx.zero_grad()
+        
+        classes_predicted_real = C(inputv)
+        loss_C_real = criterion(classes_predicted_real, img_context)
+        loss_C_real.backward(retain_graph=True)
 
         # train with fake
         fake_context_vector = generate_fake_context_tensor(batch_size)
@@ -254,7 +258,10 @@ for epoch in range(200):
         noisev = Variable(noise)
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
 
-        classes_predicted = C(fake)
+        classes_predicted_fake = C(fake)
+
+        loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
+        loss_C_fake.backward(retain_graph=True)
 
         loss_Ds_combined = torch.zeros((batch_size, nd)).type(dtype)
         #loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
