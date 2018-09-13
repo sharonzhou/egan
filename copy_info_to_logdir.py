@@ -3,13 +3,13 @@ from sh import git, cp
 from os import path
 
 def get_commit_id():
-  return git('rev-parse', 'HEAD').decode('utf-8')
+  return git('rev-parse', 'HEAD').stdout#.decode('utf-8')
 
 def get_commit_message():
-  return git('log', '-1').decode('utf-8')
+  return git('log', '-1').stdout#.decode('utf-8')
 
 def write_to_file(filepath, contents):
-  filehandle = open(filepath, 'wt')
+  filehandle = open(filepath, 'wb')
   filehandle.write(contents)
   return
 
