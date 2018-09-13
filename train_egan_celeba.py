@@ -187,10 +187,10 @@ fixed_noise = Variable(fixed_noise)
 # generator G wants to maximize D(G(z))
 criterion = nn.BCELoss() 
 def w_loss_func_G(D_fake):
-  return torch.exp(torch.mean(D_fake))
+  return -torch.mean(D_fake)
 
 def w_loss_func_D(D_real, D_fake):
-  return torch.exp(torch.mean(D_real) - torch.mean(D_fake))
+  return -(torch.mean(D_real) - torch.mean(D_fake))
 
 dtype = torch.FloatTensor
 
@@ -218,8 +218,6 @@ for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSND_list.append(optimizerSNDx)
 optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
 
-losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
-
 kl_div_fcn = nn.KLDivLoss().cuda()
 l2_fcn = nn.MSELoss().cuda()
 
@@ -235,7 +233,7 @@ for epoch in range(200):
         input.resize_(real_cpu.size()).copy_(real_cpu)
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
-        labelv_real = Variable(label)
+        labelv = Variable(label)
         ############################
         # (1) Update D_i networks: maximize log(D_i(x)) + log(1 - D_i(G(z)))
         ###########################
@@ -243,42 +241,19 @@ for epoch in range(200):
         for SNDx in SND_list:
             SNDx.zero_grad()
 
-        # train with fake
-        fake_context_vector = generate_fake_context_tensor(batch_size)
-
-        labelv_fake = Variable(label.fill_(fake_label))
-        
-        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
-        noisev = Variable(noise)
-        fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
-
-        #classes_predicted = C(fake)
-
-        loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
-        loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
-
+        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
-          if losses_list[j] == 'BCE':
-            loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
-            loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
-            #print('printing losses Ds real and fake for BCE')
-            #print(loss_Ds_real[:,j])
-            #print(loss_Ds_fake[:,j])
-          if losses_list[j] == 'W':
-            loss_Ds_real[:,j] = w_loss_func_D(SNDx(inputv), SNDx(fake))
-            loss_Ds_fake[:,j] = w_loss_func_D(SNDx(inputv), SNDx(fake))
-            #print('printing losses Ds real and fake for W')
-            #print(loss_Ds_real[:,j])
-            #print(loss_Ds_fake[:,j])
+            loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
 
-        W_real = E(inputv, nd, img_context) # batchsize x nd
+        # TODO: add context - see conditional GANs (w/ classifier)
+        W = E(inputv, nd, img_context) # batchsize x nd
 
-        kl_div = - alpha * torch.mean(torch.log(W_real))
-        loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds_real.detach() ) ) + kl_div)
+        kl_div = - alpha * torch.mean(torch.log(W))
+        loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
         loss_E.backward()
         optimizerE.step()
 
-        loss_D = nd * (torch.mean(loss_Ds_real))
+        loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
@@ -286,10 +261,28 @@ for epoch in range(200):
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
-        
-        W_fake = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        loss_D = nd * (torch.mean(loss_Ds_fake))
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+
+        # train with fake
+        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
+        noisev = Variable(noise)
+        fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
+        labelv = Variable(label.fill_(fake_label))
+        
+        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+        for j, SNDx in enumerate(SND_list):
+            loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
+            #fakeD = SNDx(fake.detach())
+            #realD = SNDx(inputv)
+            #loss_Ds[:,j] = w_loss_func_D(realD, fakeD)
+
+        #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+
+        W = E(fake, nd, fake_context_vector) # batchsize x nd
+
+        loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
         E_G_z2 = loss_E.clone()
@@ -297,6 +290,20 @@ for epoch in range(200):
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
+
+        ############################
+        # (2) Run E network: given X and context c, output weights W of length len(D_i)
+        # (dist/pdf of action space)
+        # multiply p_i * W to get final output o
+        ###########################
+        # img_context = img_context.float().cuda() # size 64
+        # img_context.unsqueeze_(-1).unsqueeze_(-1).unsqueeze_(-1) # 64 x 1 x 1 x 1
+        # img_context = img_context.expand(-1, inputv.size()[1], inputv.size()[2], inputv.size()[3]) # 64 x 3 x 64 x 64
+
+        # W = E(inputv, nd, EPSILON) # batchsize x nd
+        # W = E(inputv, img_context, nd, EPSILON) # batchsize x nd
+        # W = torch.sum(W, dim=0) # nd
+        # W = torch.div(W, W.sum()) # normalize weights (sum to 1)
 
         ############################
         # (3) Update G network: maximize log(D(G(z))*E(X,c))
@@ -307,14 +314,11 @@ for epoch in range(200):
 
             loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
-              if losses_list[j] == 'BCE':
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
-              if losses_list[j] == 'W': 
-                loss_Ds[:,j] = w_loss_func_G(SNDx(fake))
-                #print('loss_Ds computed by w_loss_func_G')
-                #print(loss_Ds[:,j])
 
-            Wmeans = torch.mean(W_fake, dim=0)
+            #W = E(fake, nd, fake_context_vector) # batchsize x nd
+            #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
+            Wmeans = torch.mean(W, dim=0)
             bestD = torch.argmax(Wmeans)
             print('bestD is: ' + str(bestD))
             #bestD = 0
