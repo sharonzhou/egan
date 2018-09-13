@@ -72,6 +72,10 @@ from copy_info_to_logdir import copy_info_to_logdir, copy_hyperparameters_to_log
 copy_info_to_logdir(logdir)
 copy_hyperparameters_to_logdir(logdir, hyperparameters)
 
+opts_file = open(path.join(logdir, 'opts.txt'), 'wt')
+opts_file.write(str(opt))
+opts_file.close()
+
 loss_outfile = open(path.join(logdir, 'losses.jsonl'), 'wt')
 
 import pickle
