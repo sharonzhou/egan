@@ -45,6 +45,7 @@ import importlib
 
 models_egan = importlib.import_module("models." + opt.model)
 _netG = models_egan._netG
+_netC = models_egan._netC
 _netE = models_egan._netE
 _netD_list = models_egan._netD_list
 
@@ -163,6 +164,7 @@ n_dis = opt.n_dis
 nz = opt.nz
 
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
+C = _netC(3, opt.batchsize, context_vector_length)
 SND_list = [_netD_x(3, opt.batchsize) for _netD_x in _netD_list]
 nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
@@ -200,6 +202,7 @@ uniform = torch.ones((opt.batchsize, nd)).type(dtype) / nd
 
 if opt.cuda:
     G.cuda()
+    C.cuda()
     for SNDx in SND_list:
         SNDx.cuda()
     E.cuda()
@@ -241,6 +244,10 @@ for epoch in range(200):
         for SNDx in SND_list:
             SNDx.zero_grad()
 
+        classes_predicted_real = C(inputv)
+        loss_C_real = criterion(classes_predicted_real, img_context)
+        loss_C_real.backward(retain_graph=True)
+
         loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds[:,j] = criterion(SNDx(inputv), labelv)
@@ -270,6 +277,10 @@ for epoch in range(200):
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
         labelv = Variable(label.fill_(fake_label))
         
+        classes_predicted_fake = C(fake)
+        loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
+        loss_C_fake.backward(retain_graph=True)
+
         loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv)
