@@ -19,6 +19,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,2.')
+parser.add_argument('--gpunum', default=0, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
@@ -74,7 +75,7 @@ torch.manual_seed(opt.manualSeed)
 if opt.cuda:
     torch.cuda.manual_seed_all(opt.manualSeed)
     #gpu_id = random.choice(opt.gpu_ids)
-    gpu_id = opt.gpu_ids[2]
+    gpu_id = opt.gpu_ids[opt.gpunum]
     torch.cuda.set_device(gpu_id)
 
 cudnn.benchmark = True
