@@ -23,6 +23,7 @@ parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,2.')
 parser.add_argument('--gpunum', default=0, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
+parser.add_argument('--presetlearningrate', type=bool, default=False, help='use preset learning rate')
 parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
@@ -58,7 +59,8 @@ def generate_learning_rate():
 nd = int(opt.numdiscriminators)
 #nd = len(_netD_list)
 lr_list = [generate_learning_rate() for x in range(nd)]
-# lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+if opt.presetlearningrate:
+  lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
 
 
 hyperparameters = {
@@ -244,7 +246,7 @@ if opt.cuda:
 optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
 optimizerSND_list = []
 # TODO: hyperparam tuning here
-lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001][:nd]
+#lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001][:nd]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
@@ -333,6 +335,13 @@ for epoch in range(200):
         loss_D = nd * (torch.mean(loss_Ds))
         loss_D.backward(retain_graph=True)
 
+        # missing new loss_E
+
+        kl_div = - alpha * torch.mean(torch.log(W))
+        loss_E = nd * (torch.mean(torch.mul(W, loss_Ds.detach() ) ) + kl_div)
+        loss_E.backward()
+        optimizerE.step()
+
         E_G_z2 = loss_E.clone()
         D_G_z2 = loss_D.clone()
 
@@ -388,13 +397,14 @@ for epoch in range(200):
               if step % 200 == 0:
                 data_to_write = {
                   'epoch': epoch,
-                  'loss_D': str(torch.mean(loss_D)),
+                  #'loss_D': str(torch.mean(loss_D)),
                   'loss_C_real': str(loss_C_real_clone),
                   'loss_C_fake': str(loss_C_fake_clone),
-                  'E_G_z1': str(E_G_z1.data.cpu().numpy()),
-                  'E_G_z2': str(E_G_z2.data.cpu().numpy()),
-                  'D_G_z1': str(D_G_z1.data.cpu().numpy()),
-                  'D_G_z2': str(D_G_z2.data.cpu().numpy()),
+                  'loss_E_real': str(E_G_z1.data.cpu().numpy()),
+                  'loss_E_fake': str(E_G_z2.data.cpu().numpy()),
+                  'loss_D_real': str(D_G_z1.data.cpu().numpy()),
+                  'loss_D_fake': str(D_G_z2.data.cpu().numpy()),
+                  # output W as well
                 }
                 if epoch == 199:
                   data_to_write['bestD_fake'] = str(bestD_fake.data.cpu().numpy())
