@@ -58,11 +58,15 @@ def generate_learning_rate():
 
 nd = int(opt.numdiscriminators)
 #nd = len(_netD_list)
+lr_G = generate_learning_rate()
+lr_E = generate_learning_rate()
 lr_list = [generate_learning_rate() for x in range(nd)]
 if opt.presetlearningrate:
   #lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
   #lr_list = [0.00001] * 10
-  lr_list = [0.0] * 10
+  lr_list = [0.000005] * 10
+  lr_G = 0.00005
+  lr_E = 0.00005
 
 
 hyperparameters = {
@@ -247,7 +251,7 @@ if opt.cuda:
     dtype = torch.cuda.FloatTensor
     uniform = uniform.cuda()
 
-optimizerG = optim.Adam(G.parameters(), lr=0.00002, betas=(0, 0.9))
+optimizerG = optim.Adam(G.parameters(), lr=lr_G, betas=(0, 0.9))
 #optimizerG = optim.SGD(G.parameters(), lr=0.0002)
 # TODO change back to nozero
 #optimizerG = optim.Adam(G.parameters(), lr=0.0, betas=(0, 0.9))
@@ -258,7 +262,7 @@ for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
 # TODO change back to nonzero
-optimizerE = optim.Adam(E.parameters(), lr=0.0, betas=(0, 0.9))
+optimizerE = optim.Adam(E.parameters(), lr=lr_E, betas=(0, 0.9))
 
 #losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
 losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
