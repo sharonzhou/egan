@@ -24,7 +24,9 @@ parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,
 parser.add_argument('--gpunum', default=0, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--presetlearningrate', type=bool, default=False, help='use preset learning rate')
-parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
+#parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
+#parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
+parser.add_argument('--discriminators', type=str, default='0', help='list of enabled discriminators')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
@@ -56,7 +58,14 @@ def generate_learning_rate():
   base = random.randrange(3, 6)
   return 10 ** (-base)
 
-nd = int(opt.numdiscriminators)
+discriminator_indexes_enabled = [int(x) for x in opt.discriminators]
+new_netD_list = []
+for idx in discriminator_indexes_enabled:
+  new_netD_list.append(_netD_list[idx])
+_netD_list = new_netD_list
+
+#nd = int(opt.numdiscriminators)
+nd = len(_netD_list)
 #nd = len(_netD_list)
 lr_G = generate_learning_rate()
 lr_E = generate_learning_rate()
@@ -74,6 +83,7 @@ hyperparameters = {
   'lr_G': lr_G,
   'lr_E': lr_E,
   'nd': nd,
+  'discriminators': opt.discriminators,
 }
 
 _netD_list = _netD_list[:nd]
@@ -202,9 +212,14 @@ def weight_filler(m):
 n_dis = opt.n_dis
 nz = opt.nz
 
+#losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
+#losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
+losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
+incude_sigmoid_list = [(x == 'BCE') for x in losses_list]
+
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
 C = _netC(3, opt.batchsize, context_vector_length)
-SND_list = [_netD_x(3, opt.batchsize) for _netD_x in _netD_list]
+SND_list = [_netD_x(3, opt.batchsize, include_sigmoid) for _netD_x,include_sigmoid in zip(_netD_list, incude_sigmoid_list)]
 #nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
@@ -266,13 +281,30 @@ for [SNDx, lrx] in zip(SND_list, lr_list):
 # TODO change back to nonzero
 optimizerE = optim.Adam(E.parameters(), lr=lr_E, betas=(0, 0.9))
 
-#losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
-losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
-#losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
-
 kl_div_fcn = nn.KLDivLoss().cuda()
 l2_fcn = nn.MSELoss().cuda()
 
+
+loss_D_history = []
+loss_G_history = []
+num_increases_tolerated = 20
+
+def append_and_ensure_length(arr, item):
+  arr.append(item)
+  while len(arr) > num_increases_tolerated:
+    arr.pop(0)
+
+def is_increasing_too_much(arr):
+  if len(arr) < num_increases_tolerated:
+    return False
+  prev = arr[0]
+  for x in arr[1:]:
+    if x < prev:
+      return False
+    prev = x
+  print('is_increasing_too_much is true for')
+  print(arr)
+  return True
 
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
@@ -424,13 +456,21 @@ for epoch in range(200):
                 message += ' ' + logdir
                 print(message)
  
-                loss_D_numeric = float(str(torch.mean(loss_D)))
-                loss_G_numeric = float(str(loss_G.data.cpu().numpy()))
-                if abs(loss_D_numeric) > 100:
+                loss_D_numeric = float('{:.4f}'.format(torch.mean(loss_D)))
+                loss_G_numeric = float('{:.4f}'.format(loss_G.data.cpu().numpy()))
+                if abs(loss_D_numeric) > 10:
                     print('loss_D became too high')
                     sys.exit()
-                if abs(loss_G_numeric) > 100:
-                    print('loss_D became too high')
+                if abs(loss_G_numeric) > 50:
+                    print('loss_G became too high')
+                    sys.exit()
+                append_and_ensure_length(loss_D_history, abs(loss_D_numeric))
+                append_and_ensure_length(loss_G_history, abs(loss_G_numeric))
+                if is_increasing_too_much(loss_D_history):
+                    print('loss_D increasing too much')
+                    sys.exit()
+                if is_increasing_too_much(loss_G_history):
+                    print('loss_G increasing too row')
                     sys.exit()
 
                 if step % 200 == 0:

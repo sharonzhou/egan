@@ -143,7 +143,7 @@ class _netE(nn.Module):
         # return output.view(-1, ndiscriminators).squeeze(1)
 
 class _netD1(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD1, self).__init__()
 
         self.main = nn.Sequential(
@@ -157,13 +157,19 @@ class _netD1(nn.Module):
             SNConv2d(ndf, 1, 3, 1, 0, bias=False),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD2(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD2, self).__init__()
 
         self.main = nn.Sequential(
@@ -178,13 +184,19 @@ class _netD2(nn.Module):
             SNConv2d(ndf * 8, 1, 4),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -207,13 +219,19 @@ class _netD3(nn.Module):
             SNConv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD3(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD3, self).__init__()
 
         self.main = nn.Sequential(
@@ -235,13 +253,19 @@ class _netD3(nn.Module):
             SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD4(nn.Module):
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD4, self).__init__()
 
         self.main = nn.Sequential(
@@ -263,14 +287,20 @@ class _netD4(nn.Module):
             SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD5(nn.Module):
     # AAE
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD5, self).__init__()
 
         self.main = nn.Sequential(
@@ -282,14 +312,20 @@ class _netD5(nn.Module):
             nn.MaxPool3d([3, 64, 1]),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD6(nn.Module):
     # BEGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD6, self).__init__()
 
         # Upsampling
@@ -317,17 +353,23 @@ class _netD6(nn.Module):
             nn.MaxPool3d([3, 64, 64]),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         out = self.down(input)
         out = self.fc(out.view(out.size(0), -1))
         out = self.up(out.view(out.size(0), 64, self.down_size, self.down_size))
         out = self.final(out)
+        for extra_layer in self.extra_layers_to_run:
+            out = extra_layer(out)
         out = out.view(-1, 1).squeeze(1)
         return out
 
 class _netD7(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD7, self).__init__()
 
         self.main = nn.Sequential(
@@ -339,14 +381,20 @@ class _netD7(nn.Module):
             nn.MaxPool3d([3, 64, 1]),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
 class _netD8(nn.Module):
     # BGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD8, self).__init__()
 
         self.main = nn.Sequential(
@@ -362,8 +410,14 @@ class _netD8(nn.Module):
             nn.MaxPool3d([3, 64, 1]),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
@@ -377,7 +431,7 @@ def cyclegan_discriminator_block(in_filters, out_filters, normalize=True):
 
 class _netD9(nn.Module):
     # CycleGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD9, self).__init__()
 
         self.main = nn.Sequential(
@@ -390,8 +444,14 @@ class _netD9(nn.Module):
             nn.MaxPool3d([1, 4, 4]),
             #nn.Sigmoid()
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
@@ -405,7 +465,7 @@ def dcgan_discriminator_block(in_filters, out_filters, bn=True):
 
 class _netD10(nn.Module):
     # DCGAN
-    def __init__(self, nc, ndf):
+    def __init__(self, nc, ndf, include_sigmoid):
         super(_netD10, self).__init__()
 
         self.main = nn.Sequential(
@@ -416,8 +476,14 @@ class _netD10(nn.Module):
             nn.MaxPool3d([128, 4, 4]),
             #nn.Sigmoid(),
         )
+        self.sigmoid = nn.Sigmoid()
+        self.extra_layers_to_run = []
+        if include_sigmoid:
+            self.extra_layers_to_run.append(self.sigmoid)
     def forward(self, input):
         output = self.main(input)
+        for extra_layer in self.extra_layers_to_run:
+            output = extra_layer(output)
         output = output.view(-1, 1).squeeze(1)
         return output
 
