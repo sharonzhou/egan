@@ -155,7 +155,7 @@ class _netD1(nn.Module):
             SNConv2d(ndf, ndf, 3, 2, 0, bias=False),
             nn.LeakyReLU(0.1, inplace=True),
             SNConv2d(ndf, 1, 3, 1, 0, bias=False),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -176,7 +176,7 @@ class _netD2(nn.Module):
             SNConv2d(ndf * 4, ndf * 8, 5, 2, 2),
             nn.LeakyReLU(0.2, inplace=True),
             SNConv2d(ndf * 8, 1, 4),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -205,7 +205,7 @@ class _netD3(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
             SNConv2d(ndf * 8, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -233,7 +233,7 @@ class _netD3(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*16) x 4 x 4
             SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -261,7 +261,7 @@ class _netD4(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*16) x 4 x 4
             SNConv2d(ndf * 16, 1, 4, 1, 0, bias=False),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -280,7 +280,7 @@ class _netD5(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 1),
             nn.MaxPool3d([3, 64, 1]),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -315,7 +315,7 @@ class _netD6(nn.Module):
         )
         self.final = nn.Sequential(
             nn.MaxPool3d([3, 64, 64]),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         out = self.down(input)
@@ -337,7 +337,7 @@ class _netD7(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 1),
             nn.MaxPool3d([3, 64, 1]),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -360,7 +360,7 @@ class _netD8(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 1),
             nn.MaxPool3d([3, 64, 1]),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -388,7 +388,7 @@ class _netD9(nn.Module):
             nn.ZeroPad2d((1, 0, 1, 0)),
             SNConv2d(512, 1, 4, padding=1),
             nn.MaxPool3d([1, 4, 4]),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     def forward(self, input):
         output = self.main(input)
@@ -414,7 +414,7 @@ class _netD10(nn.Module):
             *dcgan_discriminator_block(32, 64),
             *dcgan_discriminator_block(64, 128),
             nn.MaxPool3d([128, 4, 4]),
-            nn.Sigmoid(),
+            #nn.Sigmoid(),
         )
     def forward(self, input):
         output = self.main(input)
