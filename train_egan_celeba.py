@@ -23,6 +23,7 @@ parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,2.')
 parser.add_argument('--gpunum', default=0, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
+parser.add_argument('--earlyterminate', type=bool, default=False, help='use early termination')
 parser.add_argument('--presetlearningrate', type=bool, default=False, help='use preset learning rate')
 #parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
 #parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
@@ -71,11 +72,15 @@ lr_G = generate_learning_rate()
 lr_E = generate_learning_rate()
 lr_list = [generate_learning_rate() for x in range(nd)]
 if opt.presetlearningrate:
-  #lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+  # start this set of learning rates we have found to work well with the 10 discriminators in models_egan_celeba and BCELoss
+  lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+  lr_G = 0.0002
+  lr_E = 0.0002
+  # end
   #lr_list = [0.00001] * 10
-  lr_list = [0.000005] * 10
-  lr_G = 0.00005
-  lr_E = 0.00005
+  #lr_list = [0.000005] * 10
+  #lr_G = 0.00005
+  #lr_E = 0.00005
 
 
 hyperparameters = {
@@ -215,11 +220,13 @@ nz = opt.nz
 #losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
 #losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
 losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
-incude_sigmoid_list = [(x == 'BCE') for x in losses_list]
+include_sigmoid_list = [(x == 'BCE') for x in losses_list]
+print('include_sigmoid_list is')
+print(include_sigmoid_list)
 
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
 C = _netC(3, opt.batchsize, context_vector_length)
-SND_list = [_netD_x(3, opt.batchsize, include_sigmoid) for _netD_x,include_sigmoid in zip(_netD_list, incude_sigmoid_list)]
+SND_list = [_netD_x(3, opt.batchsize, include_sigmoid) for _netD_x,include_sigmoid in zip(_netD_list, include_sigmoid_list)]
 #nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
@@ -456,22 +463,23 @@ for epoch in range(200):
                 message += ' ' + logdir
                 print(message)
  
-                loss_D_numeric = float('{:.4f}'.format(torch.mean(loss_D)))
-                loss_G_numeric = float('{:.4f}'.format(loss_G.data.cpu().numpy()))
-                if abs(loss_D_numeric) > 10:
-                    print('loss_D became too high')
-                    sys.exit()
-                if abs(loss_G_numeric) > 50:
-                    print('loss_G became too high')
-                    sys.exit()
-                append_and_ensure_length(loss_D_history, abs(loss_D_numeric))
-                append_and_ensure_length(loss_G_history, abs(loss_G_numeric))
-                if is_increasing_too_much(loss_D_history):
-                    print('loss_D increasing too much')
-                    sys.exit()
-                if is_increasing_too_much(loss_G_history):
-                    print('loss_G increasing too row')
-                    sys.exit()
+                if opt.earlyterminate:
+                    loss_D_numeric = float('{:.4f}'.format(torch.mean(loss_D)))
+                    loss_G_numeric = float('{:.4f}'.format(loss_G.data.cpu().numpy()))
+                    if abs(loss_D_numeric) > 10:
+                        print('loss_D became too high')
+                        sys.exit()
+                    if abs(loss_G_numeric) > 50:
+                        print('loss_G became too high')
+                        sys.exit()
+                    append_and_ensure_length(loss_D_history, abs(loss_D_numeric))
+                    append_and_ensure_length(loss_G_history, abs(loss_G_numeric))
+                    if is_increasing_too_much(loss_D_history):
+                        print('loss_D increasing too much')
+                        sys.exit()
+                    if is_increasing_too_much(loss_G_history):
+                        print('loss_G increasing too row')
+                        sys.exit()
 
                 if step % 200 == 0:
                     data_to_write = {
