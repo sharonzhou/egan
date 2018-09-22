@@ -379,6 +379,7 @@ for epoch in range(200):
             bestD_fake = torch.argmax(Wmeans_fake)
             print('bestD_fake is: ' + str(bestD_fake))
             #bestD = 0
+            loss_Ds_detached = loss_Ds.detach()
             loss_G = torch.mean(loss_Ds[bestD_fake])
             #loss_G = w_loss_func_G()
             loss_G.backward(retain_graph=True)
