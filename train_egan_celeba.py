@@ -71,6 +71,8 @@ if opt.presetlearningrate:
 
 hyperparameters = {
   'lr_list': lr_list,
+  'lr_G': lr_G,
+  'lr_E': lr_E,
   'nd': nd,
 }
 
@@ -421,6 +423,16 @@ for epoch in range(200):
                 #message += ' KL: ' + ('{:.4f}'.format(kl_div))
                 message += ' ' + logdir
                 print(message)
+ 
+                loss_D_numeric = float(str(torch.mean(loss_D)))
+                loss_G_numeric = float(str(loss_G.data.cpu().numpy()))
+                if abs(loss_D_numeric) > 100:
+                    print('loss_D became too high')
+                    sys.exit()
+                if abs(loss_G_numeric) > 100:
+                    print('loss_D became too high')
+                    sys.exit()
+
                 if step % 200 == 0:
                     data_to_write = {
                     'epoch': epoch,
