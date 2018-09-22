@@ -165,7 +165,7 @@ nz = opt.nz
 
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
 C = _netC(3, opt.batchsize, context_vector_length)
-SND_list = [_netD_x(3, opt.batchsize) for _netD_x in _netD_list]
+SND_list = [_netD_x(3, opt.batchsize, True) for _netD_x in _netD_list]
 nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
