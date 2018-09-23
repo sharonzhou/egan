@@ -7,4 +7,4 @@ rm latestlog
 filename=runlog_$(date +"%Y%m%d-%H:%M:%S")
 touch "$filename"
 ln -s "$filename" latestlog
-python -u train_egan_celeba.py --cuda $@ 2>&1 | tee "$filename"
+python -u train_egan_celeba.py $@ 2>&1 | tee "$filename"
