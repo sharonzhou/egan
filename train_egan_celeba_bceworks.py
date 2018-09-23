@@ -15,12 +15,20 @@ import torch.backends.cudnn as cudnn
 import random
 import argparse
 import numpy as np
+from os import path
+import json
 
 parser = argparse.ArgumentParser(description='train SNDCGAN model')
-parser.add_argument('--cuda', action='store_true', help='enables cuda')
+#parser.add_argument('--cuda', action='store_true', help='enables cuda')
+parser.add_argument('--cuda', type=bool, default=True, help='is cuda enabled')
 parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,2.')
-parser.add_argument('--gpunum', default=2, help='gpu num: e.g. 0')
+parser.add_argument('--gpunum', default=3, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
+parser.add_argument('--earlyterminate', type=bool, default=False, help='use early termination')
+parser.add_argument('--presetlearningrate', type=bool, default=False, help='use preset learning rate')
+#parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
+#parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
+parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
 parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
@@ -48,6 +56,54 @@ _netG = models_egan._netG
 _netC = models_egan._netC
 _netE = models_egan._netE
 _netD_list = models_egan._netD_list
+
+def generate_learning_rate():
+  base = random.randrange(3, 6)
+  return 10 ** (-base)
+
+discriminator_indexes_enabled = [int(x) for x in opt.discriminators]
+new_netD_list = []
+for idx in discriminator_indexes_enabled:
+  new_netD_list.append(_netD_list[idx])
+_netD_list = new_netD_list
+
+#nd = int(opt.numdiscriminators)
+nd = len(_netD_list)
+#nd = len(_netD_list)
+lr_G = generate_learning_rate()
+lr_E = generate_learning_rate()
+lr_list = [generate_learning_rate() for x in range(nd)]
+if opt.presetlearningrate:
+  # start this set of learning rates we have found to work well with the 10 discriminators in models_egan_celeba and BCELoss
+  lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001]
+  lr_G = 0.0002
+  lr_E = 0.0002
+  # end
+  #lr_list = [0.00001] * 10
+  #lr_list = [0.000005] * 10
+  #lr_G = 0.00005
+  #lr_E = 0.00005
+
+
+hyperparameters = {
+  'lr_list': lr_list,
+  'lr_G': lr_G,
+  'lr_E': lr_E,
+  'nd': nd,
+  'discriminators': opt.discriminators,
+}
+
+_netD_list = _netD_list[:nd]
+
+from copy_info_to_logdir import copy_info_to_logdir, copy_hyperparameters_to_logdir
+copy_info_to_logdir(logdir)
+copy_hyperparameters_to_logdir(logdir, hyperparameters)
+
+opts_file = open(path.join(logdir, 'opts.txt'), 'wt')
+opts_file.write(str(opt))
+opts_file.close()
+
+loss_outfile = open(path.join(logdir, 'losses.jsonl'), 'wt')
 
 import pickle
 import os.path
@@ -163,9 +219,16 @@ def weight_filler(m):
 n_dis = opt.n_dis
 nz = opt.nz
 
+#losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
+#losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
+losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
+include_sigmoid_list = [(x == 'BCE') for x in losses_list]
+print('include_sigmoid_list is')
+print(include_sigmoid_list)
+
 G = _netG(nz, 3, opt.batchsize, context_vector_length)
 C = _netC(3, opt.batchsize, context_vector_length)
-SND_list = [_netD_x(3, opt.batchsize, True) for _netD_x in _netD_list]
+SND_list = [_netD_x(3, opt.batchsize, include_sigmoid) for _netD_x,include_sigmoid in zip(_netD_list, include_sigmoid_list)]
 nd = len(SND_list)
 E = _netE(3, opt.batchsize, nd, context_vector_length)
 print(G)
@@ -190,9 +253,11 @@ fixed_noise = Variable(fixed_noise)
 criterion = nn.BCELoss() 
 def w_loss_func_G(D_fake):
   return -torch.mean(D_fake)
+  #return torch.exp(torch.mean(D_fake))
 
 def w_loss_func_D(D_real, D_fake):
   return -(torch.mean(D_real) - torch.mean(D_fake))
+  #return torch.exp(torch.mean(D_real) - torch.mean(D_fake))
 
 dtype = torch.FloatTensor
 
@@ -212,18 +277,43 @@ if opt.cuda:
     dtype = torch.cuda.FloatTensor
     uniform = uniform.cuda()
 
-optimizerG = optim.Adam(G.parameters(), lr=0.0002, betas=(0, 0.9))
+optimizerG = optim.Adam(G.parameters(), lr=lr_G, betas=(0, 0.9))
+#optimizerG = optim.SGD(G.parameters(), lr=0.0002)
+# TODO change back to nozero
+#optimizerG = optim.Adam(G.parameters(), lr=0.0, betas=(0, 0.9))
 optimizerSND_list = []
 # TODO: hyperparam tuning here
-lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001][:nd]
+#lr_list = [0.001, 0.000002, 0.0002, 0.000001, 0.0002, 0.003, 0.0002, 0.00001, 0.0001, 0.00001][:nd]
 for [SNDx, lrx] in zip(SND_list, lr_list):
     optimizerSNDx = optim.Adam(SNDx.parameters(), lr=lrx, betas=(0, 0.9))
     optimizerSND_list.append(optimizerSNDx)
-optimizerE = optim.Adam(E.parameters(), lr=0.0002, betas=(0, 0.9))
+# TODO change back to nonzero
+optimizerE = optim.Adam(E.parameters(), lr=lr_E, betas=(0, 0.9))
 
 kl_div_fcn = nn.KLDivLoss().cuda()
 l2_fcn = nn.MSELoss().cuda()
 
+
+loss_D_history = []
+loss_G_history = []
+num_increases_tolerated = 20
+
+def append_and_ensure_length(arr, item):
+  arr.append(item)
+  while len(arr) > num_increases_tolerated:
+    arr.pop(0)
+
+def is_increasing_too_much(arr):
+  if len(arr) < num_increases_tolerated:
+    return False
+  prev = arr[0]
+  for x in arr[1:]:
+    if x < prev:
+      return False
+    prev = x
+  print('is_increasing_too_much is true for')
+  print(arr)
+  return True
 
 for epoch in range(200):
     for i, data in enumerate(dataloader, 0):
@@ -369,3 +459,11 @@ for epoch in range(200):
         SND_x = SND_list[ix]
         torch.save(SND_x.state_dict(), logdir + '/celeba_netD_batch' + ip + '.pth')
     torch.save(E.state_dict(), logdir + '/celeba_netE_batch.pth')
+
+
+loss_outfile.close()
+finished_file = open(path.join(logdir, 'finished.txt'), 'wt')
+finished_file.write('finished')
+finished_file.close()
+
+print('finished')
