@@ -391,8 +391,8 @@ for epoch in range(200):
         #loss_D.backward(retain_graph=True)
         loss_D = nd * torch.mean(loss_Ds_real)
         loss_D.backward(retain_graph=True)
-        #loss_D = nd * torch.mean(loss_Ds_fake)
-        #loss_D.backward(retain_graph=True)
+        loss_D = nd * torch.mean(loss_Ds_fake)
+        loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
         D_G_z1 = loss_D.clone()
@@ -402,14 +402,14 @@ for epoch in range(200):
         
         W_fake = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        loss_D = nd * (torch.mean(loss_Ds_fake))
-        loss_D.backward(retain_graph=True)
+        #loss_D = nd * (torch.mean(loss_Ds_fake))
+        #loss_D.backward(retain_graph=True)
 
         # missing new loss_E
 
-        #kl_div = - alpha * torch.mean(torch.log(W_fake))
-        #loss_E = nd * (torch.mean(torch.mul(W_fake, loss_Ds_fake.detach() ) ) + kl_div)
-        #loss_E.backward(retain_graph=True)
+        kl_div = - alpha * torch.mean(torch.log(W_fake))
+        loss_E = nd * (torch.mean(torch.mul(W_fake, loss_Ds_fake.detach() ) ) + kl_div)
+        loss_E.backward(retain_graph=True)
         #optimizerE.step()
 
         E_G_z2 = loss_E.clone()
