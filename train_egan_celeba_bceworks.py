@@ -338,6 +338,11 @@ for epoch in range(200):
         loss_C_real = criterion(classes_predicted_real, img_context)
         loss_C_real.backward(retain_graph=True)
 
+        #loss_C_real_clone = loss_C_real.clone()
+    
+        # train with fake
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+
         loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
@@ -364,8 +369,6 @@ for epoch in range(200):
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
-
-        fake_context_vector = generate_fake_context_tensor(batch_size)
 
         # train with fake
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
