@@ -338,19 +338,19 @@ for epoch in range(200):
         loss_C_real = criterion(classes_predicted_real, img_context)
         loss_C_real.backward(retain_graph=True)
 
-        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+        loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
-            loss_Ds[:,j] = criterion(SNDx(inputv), labelv_real)
+            loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
 
         # TODO: add context - see conditional GANs (w/ classifier)
         W_real = E(inputv, nd, img_context) # batchsize x nd
 
         kl_div = - alpha * torch.mean(torch.log(W_real))
-        loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds.detach() ) ) + kl_div)
+        loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds_real.detach() ) ) + kl_div)
         loss_E.backward()
         optimizerE.step()
 
-        loss_D = nd * (torch.mean(loss_Ds))
+        loss_D = nd * torch.mean(loss_Ds_real)
         loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
