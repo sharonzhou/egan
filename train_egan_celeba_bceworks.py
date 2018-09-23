@@ -345,11 +345,17 @@ for epoch in range(200):
         # TODO: add context - see conditional GANs (w/ classifier)
         W_real = E(inputv, nd, img_context) # batchsize x nd
 
+        # just for printing and logging
+        Wmeans_real = torch.mean(W_real, dim=0)
+        bestD_real = torch.argmax(Wmeans_real)
+
         kl_div = - alpha * torch.mean(torch.log(W_real))
         loss_E = nd * (torch.mean(torch.mul(W_real, loss_Ds_real.detach() ) ) + kl_div)
-        loss_E.backward()
+        loss_E.backward(retain_graph=True)
         optimizerE.step()
 
+        #loss_D = nd * ( torch.mean(loss_Ds_real) + torch.mean(loss_Ds_fake) )
+        #loss_D.backward(retain_graph=True)
         loss_D = nd * torch.mean(loss_Ds_real)
         loss_D.backward(retain_graph=True)
 
