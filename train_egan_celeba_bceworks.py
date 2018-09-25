@@ -25,7 +25,7 @@ parser.add_argument('--gpu_ids', default=range(4), help='gpu ids: e.g. 0,1,2, 0,
 parser.add_argument('--gpunum', default=3, help='gpu num: e.g. 0')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument('--earlyterminate', type=bool, default=False, help='use early termination')
-parser.add_argument('--presetlearningrate', type=bool, default=False, help='use preset learning rate')
+parser.add_argument('--presetlearningrate', type=bool, default=True, help='use preset learning rate')
 #parser.add_argument('--numdiscriminators', type=int, default=10, help='number of discriminators in the gang')
 #parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
 parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
@@ -349,7 +349,6 @@ for epoch in range(200):
         noisev = Variable(noise)
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
         labelv_fake = Variable(label_fake.fill_(fake_label))
-        print("labelv_fake is init from label_fake.")
         # moved
 
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
@@ -373,14 +372,12 @@ for epoch in range(200):
 
         #loss_D = nd * ( torch.mean(loss_Ds_real) + torch.mean(loss_Ds_fake) )
         #loss_D.backward(retain_graph=True)
-        loss_D_real = nd * torch.mean(loss_Ds_real)
-        loss_D_real.backward(retain_graph=True)
+        
 
         E_G_z1 = loss_E.clone()
-        D_G_z1 = loss_D_real.clone()
 
-        for optimizerSNDx in optimizerSND_list:
-            optimizerSNDx.step()
+        # for optimizerSNDx in optimizerSND_list:
+        #     optimizerSNDx.step()
 
         # train with fake
         # noisev = Variable(noise)
@@ -402,12 +399,17 @@ for epoch in range(200):
         fake_context_vector = generate_fake_context_tensor(batch_size)
 
         W_fake = E(fake, nd, fake_context_vector) # batchsize x nd
-
+        loss_D_real = nd * (torch.mean(loss_Ds_real))
+        #loss_D_real.backward(retain_graph=True)
         loss_D_fake = nd * (torch.mean(loss_Ds_fake))
-        loss_D_fake.backward(retain_graph=True)
+        loss_D_both = loss_D_real + loss_D_fake
+        print(loss_D_both, loss_D_real, loss_D_fake)
+        loss_D_both.backward(retain_graph=True)
 
         E_G_z2 = loss_E.clone()
         D_G_z2 = loss_D_fake.clone()
+        D_G_z1 = loss_D_real.clone()
+
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
