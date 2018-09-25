@@ -123,7 +123,7 @@ else:
     pickle.dump(dataset, open('celeba.pickle', 'wb'))
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchsize,
-                                         shuffle=True, num_workers=int(2))
+                                         shuffle=False, num_workers=int(2))
 
 if opt.manualSeed is None:
     opt.manualSeed = random.randint(1, 10000)
@@ -343,39 +343,12 @@ for epoch in range(200):
         # train with fake
         fake_context_vector = generate_fake_context_tensor(batch_size)
 
-        labelv_fake = Variable(label.fill_(fake_label))
-        
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
-        noisev = Variable(noise)
-        fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
-
-        #classes_predicted_fake = C(fake)
-        #loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
-        #loss_C_fake.backward(retain_graph=True)
-
-        #loss_C_fake_clone = loss_C_fake.clone()
-
-        #classes_predicted = C(fake)
-
         loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
-        loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
-
         for j, SNDx in enumerate(SND_list):
-          if losses_list[j] == 'BCE':
             loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
-            loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
-            #print('printing losses Ds real and fake for BCE')
-            #print(loss_Ds_real[:,j])
-            #print(loss_Ds_fake[:,j])
-          if losses_list[j] == 'W':
-            loss_Ds_real[:,j] = - SNDx(inputv) #w_loss_func_D(SNDx(inputv), SNDx(fake))
-            loss_Ds_fake[:,j] = SNDx(fake) #w_loss_func_D(SNDx(inputv), SNDx(fake))
-            #print('printing losses Ds real and fake for W')
-            #print(loss_Ds_real[:,j])
-            #print(loss_Ds_fake[:,j])
 
-        # loss_Ds_combined = 
-
+        # TODO: add context - see conditional GANs (w/ classifier)
         W_real = E(inputv, nd, img_context) # batchsize x nd
 
         # just for printing and logging
@@ -391,26 +364,36 @@ for epoch in range(200):
         #loss_D.backward(retain_graph=True)
         loss_D = nd * torch.mean(loss_Ds_real)
         loss_D.backward(retain_graph=True)
-        loss_D = nd * torch.mean(loss_Ds_fake)
-        loss_D.backward(retain_graph=True)
 
         E_G_z1 = loss_E.clone()
         D_G_z1 = loss_D.clone()
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
+
+        # train with fake
+        noisev = Variable(noise)
+        fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
+        labelv_fake = Variable(label.fill_(fake_label))
         
+        classes_predicted_fake = C(fake)
+        loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
+        loss_C_fake.backward(retain_graph=True)
+
+        loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
+        for j, SNDx in enumerate(SND_list):
+            loss_Ds[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
+            #fakeD = SNDx(fake.detach())
+            #realD = SNDx(inputv)
+            #loss_Ds[:,j] = w_loss_func_D(realD, fakeD)
+
+        #fake_context_vector = [generate_fake_context_vector() for x in range(batch_size)]
+        fake_context_vector = generate_fake_context_tensor(batch_size)
+
         W_fake = E(fake, nd, fake_context_vector) # batchsize x nd
 
-        #loss_D = nd * (torch.mean(loss_Ds_fake))
-        #loss_D.backward(retain_graph=True)
-
-        # missing new loss_E
-
-        kl_div = - alpha * torch.mean(torch.log(W_fake))
-        loss_E = nd * (torch.mean(torch.mul(W_fake, loss_Ds_fake.detach() ) ) + kl_div)
-        loss_E.backward(retain_graph=True)
-        #optimizerE.step()
+        loss_D = nd * (torch.mean(loss_Ds))
+        loss_D.backward(retain_graph=True)
 
         E_G_z2 = loss_E.clone()
         D_G_z2 = loss_D.clone()
@@ -441,14 +424,10 @@ for epoch in range(200):
 
             loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
-              if losses_list[j] == 'BCE':
                 loss_Ds[:,j] = criterion(SNDx(fake), labelv)
-              if losses_list[j] == 'W': 
-                loss_Ds[:,j] = w_loss_func_G(SNDx(fake))
-                #print('loss_Ds computed by w_loss_func_G')
-                #print(loss_Ds[:,j])
 
-            #= torch.mult(W_fake, loss_Ds) 
+            #W = E(fake, nd, fake_context_vector) # batchsize x nd
+            #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
             Wmeans_fake = torch.mean(W_fake, dim=0)
             bestD_fake = torch.argmax(Wmeans_fake)
             print('bestD_fake is: ' + str(bestD_fake))
@@ -458,57 +437,17 @@ for epoch in range(200):
             loss_G.backward(retain_graph=True)
 
             optimizerG.step()
-            if step % 20 == 0:
-                # print(W)
-                message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
-                message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
-                message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
-                message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
-                message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
-                #message += ' KL: ' + ('{:.4f}'.format(kl_div))
-                message += ' ' + logdir
-                print(message)
- 
-                if opt.earlyterminate:
-                    loss_D_numeric = float('{:.4f}'.format(torch.mean(loss_D)))
-                    loss_G_numeric = float('{:.4f}'.format(loss_G.data.cpu().numpy()))
-                    if abs(loss_D_numeric) > 10:
-                        print('loss_D became too high')
-                        sys.exit()
-                    if abs(loss_G_numeric) > 50:
-                        print('loss_G became too high')
-                        sys.exit()
-                    append_and_ensure_length(loss_D_history, abs(loss_D_numeric))
-                    append_and_ensure_length(loss_G_history, abs(loss_G_numeric))
-                    if is_increasing_too_much(loss_D_history):
-                        print('loss_D increasing too much')
-                        sys.exit()
-                    if is_increasing_too_much(loss_G_history):
-                        print('loss_G increasing too row')
-                        sys.exit()
 
-                if step % 200 == 0:
-                    data_to_write = {
-                    'epoch': epoch,
-                    #'loss_D': str(torch.mean(loss_D)),
-                    #'loss_C_real': str(loss_C_real_clone),
-                    #'loss_C_fake': str(loss_C_fake_clone),
-                    'loss_E_real': str(E_G_z1.data.cpu().numpy()),
-                    'loss_E_fake': str(E_G_z2.data.cpu().numpy()),
-                    'loss_D_real': str(D_G_z1.data.cpu().numpy()),
-                    'loss_D_fake': str(D_G_z2.data.cpu().numpy()),
-                    'bestD_fake': str(bestD_fake.data.cpu().numpy()),
-                    'bestD_real': str(bestD_real.data.cpu().numpy()),
-                    # output W as well
-                    }
-                    if epoch == 199:
-                        #data_to_write['bestD_fake'] = str(bestD_fake.data.cpu().numpy())
-                        data_to_write['fake_context_vector'] = fake_context_vector.detach().cpu().numpy().tolist()
-                        #data_to_write['bestD_real'] = str(bestD_real.data.cpu().numpy())
-                        data_to_write['real_context_vector'] = img_context.detach().cpu().numpy().tolist()
-                        loss_outfile.write(json.dumps(data_to_write))
-                        loss_outfile.write('\n')
-                        loss_outfile.flush()
+        if i % 20 == 0:
+            # print(W)
+            message = '[' + str(epoch) + '/' + str(200) + '][' + str(i) + '/' + str(len(dataloader)) + ']'
+            message += ' Loss_D: ' + ('{:.4f}'.format(torch.mean(loss_D)))
+            message += ' Loss_G: ' + ('{:.4f}'.format(loss_G.data.cpu().numpy())) 
+            message += ' E(G(z)): ' + ('{:.4f}'.format(E_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(E_G_z2.data.cpu().numpy()))
+            message += ' D(G(z)): ' + ('{:.4f}'.format(D_G_z1.data.cpu().numpy())) + ' / ' + ('{:.4f}'.format(D_G_z2.data.cpu().numpy()))
+            #message += ' KL: ' + ('{:.4f}'.format(kl_div))
+            message += ' ' + logdir
+            print(message)
 
             #print('[%d/%d][%d/%d] Loss_D1: %.4f Loss_D2: %.4f Loss_D3: %.4f Loss_G: %.4f = Loss_log(D(G(z))*E(X,c)) E(G(z)): %.4f / %.4f' % (epoch, 200, i, len(dataloader),
             #         errD1.data[0], errD2.data[0], errD3.data[0], errG.data[0], E_G_z1, E_G_z2))
