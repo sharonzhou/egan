@@ -123,7 +123,7 @@ else:
     pickle.dump(dataset, open('celeba.pickle', 'wb'))
 
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batchsize,
-                                         shuffle=True, num_workers=int(2))
+                                         shuffle=False, num_workers=int(2))
 
 if opt.manualSeed is None:
     opt.manualSeed = random.randint(1, 10000)
