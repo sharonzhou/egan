@@ -241,7 +241,9 @@ E.apply(weight_filler)
 input = torch.FloatTensor(opt.batchsize, 3, 64, 64)
 noise = torch.FloatTensor(opt.batchsize, nz, 1, 1)
 fixed_noise = torch.FloatTensor(opt.batchsize, nz, 1, 1).normal_(0, 1)
-label = torch.FloatTensor(opt.batchsize)
+label_g = torch.FloatTensor(opt.batchsize)
+label_real = torch.FloatTensor(opt.batchsize)
+label_fake = torch.FloatTensor(opt.batchsize)
 real_label = 1
 fake_label = 0
 
@@ -272,7 +274,7 @@ if opt.cuda:
         SNDx.cuda()
     E.cuda()
     criterion.cuda()
-    input, label = input.cuda(), label.cuda()
+    input, label_real, label_fake, label_g = input.cuda(), label_real.cuda(), label_fake.cuda(), label_g.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
     dtype = torch.cuda.FloatTensor
     uniform = uniform.cuda()
@@ -324,9 +326,9 @@ for epoch in range(200):
         batch_size = real_cpu.size(0)
 
         input.resize_(real_cpu.size()).copy_(real_cpu)
-        label.resize_(batch_size).fill_(real_label)
+        label_real.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
-        labelv_real = Variable(label)
+        labelv_real = Variable(label_real)
         ############################
         # (1) Update D_i networks: maximize log(D_i(x)) + log(1 - D_i(G(z)))
         ###########################
@@ -343,11 +345,14 @@ for epoch in range(200):
         # train with fake
         fake_context_vector = generate_fake_context_tensor(batch_size)
         
-        labelv_fake = Variable(label.fill_(fake_label))
-        
-        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
+        # moved
         noisev = Variable(noise)
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
+        labelv_fake = Variable(label_fake.fill_(fake_label))
+        print("labelv_fake is init from label_fake.")
+        # moved
+
+        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
         loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
             loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
@@ -374,6 +379,11 @@ for epoch in range(200):
 
         for optimizerSNDx in optimizerSND_list:
             optimizerSNDx.step()
+
+        # train with fake
+        # noisev = Variable(noise)
+        # fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
+        # labelv_fake = Variable(label.fill_(fake_label))
         
         classes_predicted_fake = C(fake)
         loss_C_fake = criterion(classes_predicted_fake, fake_context_vector)
@@ -419,11 +429,11 @@ for epoch in range(200):
         ###########################
         if step % n_dis == 0:
             G.zero_grad()
-            labelv = Variable(label.fill_(real_label))  # fake labels are real for generator cost
+            labelv_g = Variable(label_g.fill_(real_label))  # fake labels are real for generator cost
 
             loss_Ds = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
-                loss_Ds[:,j] = criterion(SNDx(fake), labelv)
+                loss_Ds[:,j] = criterion(SNDx(fake), labelv_g)
 
             #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
