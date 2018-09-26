@@ -358,13 +358,9 @@ for epoch in range(200):
             if losses_list[j] == 'BCE':
                 loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
                 loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
-                print('BCE d real', loss_Ds_real[:,j])
-                print('BCE d fake', loss_Ds_fake[:,j])
             else:
                 loss_Ds_real[:,j] = torch.mean(nn.Softplus()(SNDx(inputv)))
                 loss_Ds_fake[:,j] = torch.mean(nn.Softplus()(-SNDx(fake.detach())))
-                print('W d real', loss_Ds_real[:,j])
-                print('W d fake', loss_Ds_fake[:,j])
 
         # TODO: add context - see conditional GANs (w/ classifier)
         W_real = E(inputv, nd, img_context) # batchsize x nd
@@ -447,10 +443,8 @@ for epoch in range(200):
             for j, SNDx in enumerate(SND_list):
                 if losses_list[j] == 'BCE':
                     loss_Ds_g[:,j] = criterion(SNDx(fake), labelv_g)
-                    print('BCE generator', loss_Ds_g[:,j])
                 else:
                     loss_Ds_g[:,j] = torch.mean(nn.Softplus()(-SNDx(fake)))
-                    print('W generator', loss_Ds_g[:,j])
 
             #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 

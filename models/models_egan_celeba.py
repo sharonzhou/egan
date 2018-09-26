@@ -59,6 +59,7 @@ class _netC(nn.Module):
 class _netG(nn.Module):
     def __init__(self, nz, nc, ngf, context_vector_length):
         super(_netG, self).__init__()
+        #self.nz = nz
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(nz + context_vector_length, ngf * 8, 4, 1, 0, bias=True),
@@ -83,11 +84,13 @@ class _netG(nn.Module):
         )
 
     def forward(self, input, context_vector):
+        #print('nz is')
+        #print(self.nz)
         #print('input shape')
         #print(input.shape)
         next_input = torch.cat((input.view(input.size(0), -1), context_vector.view(context_vector.size(0), -1)), -1)
         #print('after cat next_input')
-        #print(next_input)
+        #print(next_input.shape)
         #  next_input.view(input.size(0) + context_vector.size(0), -1)
         next_input = next_input.unsqueeze(-1).unsqueeze(-1)
         #print('next_input shape')
