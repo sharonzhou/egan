@@ -30,7 +30,7 @@ parser.add_argument('--presetlearningrate', type=bool, default=True, help='use p
 #parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
 parser.add_argument('--discriminators', type=str, default='0123456789', help='list of enabled discriminators')
 parser.add_argument('--n_dis', type=int, default=5, help='discriminator critic iters')
-parser.add_argument('--nz', type=int, default=88, help='dimension of lantent noise')
+parser.add_argument('--nz', type=int, default=88, help='dimension of latent noise')
 parser.add_argument('--batchsize', type=int, default=64, help='training batch size')
 parser.add_argument('--datadir', type=str, default='/sailhome/sharonz/celeba/full/', help='data directory')
 parser.add_argument('--model', type=str, default='models_egan_celeba', help='training batch size')
@@ -345,7 +345,10 @@ for epoch in range(200):
         # train with fake
         fake_context_vector = generate_fake_context_tensor(batch_size)
         
+        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
+
         # moved
+        #noise.resize_(batch_size)
         noisev = Variable(noise)
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
         labelv_fake = Variable(label_fake.fill_(fake_label))
@@ -353,7 +356,6 @@ for epoch in range(200):
         labelv_fake = Variable(label_fake) #Variable(label_fake.fill_(fake_label))
         # moved
 
-        noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
         loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
         loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
@@ -479,6 +481,8 @@ for epoch in range(200):
             vutils.save_image(real_cpu,
                     '%s/real_samples.png' % logdir,
                     normalize=True)
+            #fixed_noise.resize_(batch_size)
+            fixed_noise.resize_(batch_size, fixed_noise.size(1), fixed_noise.size(2), fixed_noise.size(3)).normal_(0, 1)
             fake = G(fixed_noise, fake_context_vector) # fake context vector should be passed here
             vutils.save_image(fake.data,
                     '%s/celeba_E_D10_batch_fake_samples_epoch_%03d.png' % (logdir, epoch),
