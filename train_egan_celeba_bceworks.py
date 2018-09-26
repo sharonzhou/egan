@@ -219,9 +219,9 @@ def weight_filler(m):
 n_dis = opt.n_dis
 nz = opt.nz
 
-#losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
+losses_list = ['W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE', 'W', 'BCE'][:nd]
 #losses_list = ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'][:nd]
-losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
+#losses_list = ['BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE', 'BCE'][:nd]
 include_sigmoid_list = [(x == 'BCE') for x in losses_list]
 print('include_sigmoid_list is')
 print(include_sigmoid_list)
@@ -355,8 +355,16 @@ for epoch in range(200):
         loss_Ds_real = torch.zeros((batch_size, nd)).type(dtype)
         loss_Ds_fake = torch.zeros((batch_size, nd)).type(dtype)
         for j, SNDx in enumerate(SND_list):
-            loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
-            loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
+            if losses_list[j] == 'BCE':
+                loss_Ds_real[:,j] = criterion(SNDx(inputv), labelv_real)
+                loss_Ds_fake[:,j] = criterion(SNDx(fake.detach()), labelv_fake)
+                print('BCE d real', loss_Ds_real[:,j])
+                print('BCE d fake', loss_Ds_fake[:,j])
+            else:
+                loss_Ds_real[:,j] = torch.mean(nn.Softplus()(SNDx(inputv)))
+                loss_Ds_fake[:,j] = torch.mean(nn.Softplus()(-SNDx(fake.detach())))
+                print('W d real', loss_Ds_real[:,j])
+                print('W d fake', loss_Ds_fake[:,j])
 
         # TODO: add context - see conditional GANs (w/ classifier)
         W_real = E(inputv, nd, img_context) # batchsize x nd
@@ -437,7 +445,12 @@ for epoch in range(200):
 
             loss_Ds_g = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
-                loss_Ds_g[:,j] = criterion(SNDx(fake), labelv_g)
+                if losses_list[j] == 'BCE':
+                    loss_Ds_g[:,j] = criterion(SNDx(fake), labelv_g)
+                    print('BCE generator', loss_Ds_g[:,j])
+                else:
+                    loss_Ds_g[:,j] = torch.mean(nn.Softplus()(-SNDx(fake)))
+                    print('W generator', loss_Ds_g[:,j])
 
             #W = E(fake, nd, fake_context_vector) # batchsize x nd
             #loss_G = nd * torch.mean(torch.mul(W, loss_Ds)) 
