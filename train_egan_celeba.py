@@ -349,6 +349,8 @@ for epoch in range(200):
         noisev = Variable(noise)
         fake = G(noisev, fake_context_vector) # fake context vecot should be passed here
         labelv_fake = Variable(label_fake.fill_(fake_label))
+        label_fake.resize_(batch_size).fill_(fake_label)
+        labelv_fake = Variable(label_fake) #Variable(label_fake.fill_(fake_label))
         # moved
 
         noise.resize_(batch_size, noise.size(1), noise.size(2), noise.size(3)).normal_(0, 1)
@@ -437,7 +439,9 @@ for epoch in range(200):
         ###########################
         if step % n_dis == 0:
             G.zero_grad()
-            labelv_g = Variable(label_g.fill_(real_label))  # fake labels are real for generator cost
+            label_g.resize_(batch_size).fill_(real_label)
+            labelv_g = Variable(label_g)  # fake labels are real for generator cost
+            #labelv_g = Variable(label_g.fill_(real_label))  # fake labels are real for generator cost
 
             loss_Ds_g = torch.zeros((batch_size, nd)).type(dtype)
             for j, SNDx in enumerate(SND_list):
